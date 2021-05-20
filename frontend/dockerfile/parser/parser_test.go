@@ -175,3 +175,45 @@ func TestParseReturnsScannerErrors(t *testing.T) {
 	_, err := Parse(dockerfile)
 	require.EqualError(t, err, "dockerfile line greater than max allowed size of 65535")
 }
+
+func TestParseExtractsHeredoc(t *testing.T) {
+	dockerfile := bytes.NewBufferString(`
+FROM alpine:3.6
+
+RUN ls
+
+RUN <<EOF
+EOF
+
+RUN <<EOF
+	foo
+	bar
+EOF
+
+RUN <<-EOF
+	baz
+	quux
+EOF
+	`)
+
+	tests := [][]string{
+		nil,
+		{},
+		{"\tfoo", "\tbar"},
+		{"baz", "quux"},
+	}
+
+	result, err := Parse(dockerfile)
+	require.NoError(t, err)
+
+	for i, test := range tests {
+		child := result.AST.Children[i+1]
+		require.Equal(t, test, child.Heredoc)
+
+		require.Equal(t, "run", child.Value)
+		if child.Heredoc != nil {
+			require.True(t, IsHeredoc(child.Next.Value))
+		}
+		require.Nil(t, child.Next.Next)
+	}
+}

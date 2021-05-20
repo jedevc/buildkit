@@ -31,6 +31,7 @@ type Node struct {
 	Value       string          // actual content
 	Next        *Node           // the next item in the current sexp
 	Children    []*Node         // the children of this sexp
+	Heredoc     []string        // TODO
 	Attributes  map[string]bool // special attributes for this node
 	Original    string          // original line used before parsing
 	Flags       []string        // only top Node should have this set
@@ -89,6 +90,7 @@ var (
 	reWhitespace = regexp.MustCompile(`[\t\v\f\r ]+`)
 	reDirectives = regexp.MustCompile(`^#\s*([a-zA-Z][a-zA-Z0-9]*)\s*=\s*(.+?)\s*$`)
 	reComment    = regexp.MustCompile(`^#.*$`)
+	reHeredoc    = regexp.MustCompile(`<<(-?)([a-zA-Z][a-zA-Z0-9]+)`)
 )
 
 // DefaultEscapeToken is the default escape token
@@ -204,7 +206,7 @@ func init() {
 // newNodeFromLine splits the line into parts, and dispatches to a function
 // based on the command and command arguments. A Node is created from the
 // result of the dispatch.
-func newNodeFromLine(line string, d *directives, comments []string) (*Node, error) {
+func newNodeFromLine(line string, d *directives, comments []string, heredoc []string) (*Node, error) {
 	cmd, flags, args, err := splitCommand(line)
 	if err != nil {
 		return nil, err
@@ -226,6 +228,7 @@ func newNodeFromLine(line string, d *directives, comments []string) (*Node, erro
 		Flags:       flags,
 		Next:        next,
 		Attributes:  attrs,
+		Heredoc:     heredoc,
 		PrevComment: comments,
 	}, nil
 }
@@ -308,7 +311,29 @@ func Parse(rwc io.Reader) (*Result, error) {
 			warnings = append(warnings, "[WARNING]: Empty continuation line found in:\n    "+line)
 		}
 
-		child, err := newNodeFromLine(line, d, comments)
+		var heredoc []string
+		if match := reHeredoc.FindStringSubmatch(line); len(match) != 0 {
+			heredocChomp := false
+			if match[1] == "-" {
+				heredocChomp = true
+			}
+			heredocName := match[2]
+
+			heredoc = []string{}
+			for scanner.Scan() {
+				heredocLine := scanner.Text()
+				if heredocChomp {
+					heredocLine = strings.TrimLeftFunc(heredocLine, unicode.IsSpace)
+				}
+
+				if heredocLine == heredocName {
+					break
+				}
+				heredoc = append(heredoc, heredocLine)
+			}
+		}
+
+		child, err := newNodeFromLine(line, d, comments, heredoc)
 		if err != nil {
 			return nil, withLocation(err, startLine, currentLine)
 		}
@@ -329,6 +354,11 @@ func Parse(rwc io.Reader) (*Result, error) {
 		Warnings:    warnings,
 		EscapeToken: d.escapeToken,
 	}, withLocation(handleScannerError(scanner.Err()), currentLine, 0)
+}
+
+func IsHeredoc(src string) bool {
+	loc := reHeredoc.FindStringIndex(src)
+	return loc != nil && loc[0] == 0 && loc[1] == len(src)
 }
 
 func trimComments(src []byte) []byte {

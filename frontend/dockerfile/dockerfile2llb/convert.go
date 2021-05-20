@@ -505,7 +505,7 @@ func dispatch(d *dispatchState, cmd command, opt dispatchOpt) error {
 	case *instructions.WorkdirCommand:
 		err = dispatchWorkdir(d, c, true, &opt)
 	case *instructions.AddCommand:
-		err = dispatchCopy(d, c.SourcesAndDest, opt.buildContext, true, c, c.Chown, c.Chmod, c.Location(), opt)
+		err = dispatchCopy(d, c.SourcesAndDest, c.Content, opt.buildContext, true, c, c.Chown, c.Chmod, c.Location(), opt)
 		if err == nil {
 			for _, src := range c.Sources() {
 				if !strings.HasPrefix(src, "http://") && !strings.HasPrefix(src, "https://") {
@@ -540,7 +540,7 @@ func dispatch(d *dispatchState, cmd command, opt dispatchOpt) error {
 		if len(cmd.sources) != 0 {
 			l = cmd.sources[0].state
 		}
-		err = dispatchCopy(d, c.SourcesAndDest, l, false, c, c.Chown, c.Chmod, c.Location(), opt)
+		err = dispatchCopy(d, c.SourcesAndDest, c.Content, l, false, c, c.Chown, c.Chmod, c.Location(), opt)
 		if err == nil && len(cmd.sources) == 0 {
 			for _, src := range c.Sources() {
 				d.ctxPaths[path.Join("/", filepath.ToSlash(src))] = struct{}{}
@@ -734,7 +734,7 @@ func dispatchWorkdir(d *dispatchState, c *instructions.WorkdirCommand, commit bo
 	return nil
 }
 
-func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, sourceState llb.State, isAddCommand bool, cmdToPrint fmt.Stringer, chown string, chmod string, loc []parser.Range, opt dispatchOpt) error {
+func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, content []string, sourceState llb.State, isAddCommand bool, cmdToPrint fmt.Stringer, chown string, chmod string, loc []parser.Range, opt dispatchOpt) error {
 	pp, err := pathRelativeToWorkingDir(d.state, c.Dest())
 	if err != nil {
 		return err
@@ -818,6 +818,23 @@ func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, sourceS
 		}
 	}
 
+	if content != nil {
+		f := "__unnamed__"
+		data := strings.Join(content, "\n") // TODO: windows line endings?
+		st := llb.Scratch().Dir("/").File(llb.Mkfile(f, 0664, []byte(data)))
+
+		opts := append([]llb.CopyOption{&llb.CopyInfo{
+			Mode:           mode,
+			CreateDestPath: true,
+		}}, copyOpt...)
+
+		if a == nil {
+			a = llb.Copy(st, f, dest, opts...)
+		} else {
+			a = a.Copy(st, f, dest, opts...)
+		}
+	}
+
 	commitMessage.WriteString(" " + c.Dest())
 
 	platform := opt.targetPlatform
@@ -842,9 +859,13 @@ func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, sourceS
 	return commitToHistory(&d.image, commitMessage.String(), true, &d.state)
 }
 
-func dispatchCopy(d *dispatchState, c instructions.SourcesAndDest, sourceState llb.State, isAddCommand bool, cmdToPrint fmt.Stringer, chown string, chmod string, loc []parser.Range, opt dispatchOpt) error {
+func dispatchCopy(d *dispatchState, c instructions.SourcesAndDest, content []string, sourceState llb.State, isAddCommand bool, cmdToPrint fmt.Stringer, chown string, chmod string, loc []parser.Range, opt dispatchOpt) error {
 	if useFileOp(opt.buildArgValues, opt.llbCaps) {
-		return dispatchCopyFileOp(d, c, sourceState, isAddCommand, cmdToPrint, chown, chmod, loc, opt)
+		return dispatchCopyFileOp(d, c, content, sourceState, isAddCommand, cmdToPrint, chown, chmod, loc, opt)
+	}
+
+	if content != nil {
+		return errors.New("inline content is not supported")
 	}
 
 	if chmod != "" {

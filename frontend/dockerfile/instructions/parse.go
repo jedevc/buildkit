@@ -18,6 +18,7 @@ import (
 type parseRequest struct {
 	command    string
 	args       []string
+	heredoc    []string
 	attributes map[string]bool
 	flags      *BFlags
 	original   string
@@ -47,6 +48,7 @@ func newParseRequestFromNode(node *parser.Node) parseRequest {
 	return parseRequest{
 		command:    node.Value,
 		args:       nodeArgs(node),
+		heredoc:    node.Heredoc,
 		attributes: node.Attributes,
 		original:   node.Original,
 		flags:      NewBFlagsWithArgs(node.Flags),
@@ -245,6 +247,24 @@ func parseAdd(req parseRequest) (*AddCommand, error) {
 	if err := req.flags.Parse(); err != nil {
 		return nil, err
 	}
+
+	if req.heredoc != nil && parser.IsHeredoc(req.args[0]) {
+		if len(req.args) != 2 {
+			return nil, errExactlyTwoArguments("ADD")
+		}
+		if parser.IsHeredoc(req.args[1]) {
+			return nil, errBadHeredoc("ADD", "a destination")
+		}
+
+		return &AddCommand{
+			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
+			Content:         req.heredoc,
+			withNameAndCode: newWithNameAndCode(req),
+			Chown:           flChown.Value,
+			Chmod:           flChmod.Value,
+		}, nil
+	}
+
 	return &AddCommand{
 		SourcesAndDest:  SourcesAndDest(req.args),
 		withNameAndCode: newWithNameAndCode(req),
@@ -263,6 +283,25 @@ func parseCopy(req parseRequest) (*CopyCommand, error) {
 	if err := req.flags.Parse(); err != nil {
 		return nil, err
 	}
+
+	if req.heredoc != nil && parser.IsHeredoc(req.args[0]) {
+		if len(req.args) != 2 {
+			return nil, errExactlyTwoArguments("COPY")
+		}
+		if parser.IsHeredoc(req.args[1]) {
+			return nil, errBadHeredoc("COPY", "a destination")
+		}
+
+		return &CopyCommand{
+			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
+			Content:         req.heredoc,
+			From:            flFrom.Value,
+			withNameAndCode: newWithNameAndCode(req),
+			Chown:           flChown.Value,
+			Chmod:           flChmod.Value,
+		}, nil
+	}
+
 	return &CopyCommand{
 		SourcesAndDest:  SourcesAndDest(req.args),
 		From:            flFrom.Value,
@@ -647,8 +686,16 @@ func errExactlyOneArgument(command string) error {
 	return errors.Errorf("%s requires exactly one argument", command)
 }
 
+func errExactlyTwoArguments(command string) error {
+	return errors.Errorf("%s requires exactly two arguments", command)
+}
+
 func errNoDestinationArgument(command string) error {
 	return errors.Errorf("%s requires at least two arguments, but only one was provided. Destination could not be determined.", command)
+}
+
+func errBadHeredoc(command string, thing string) error {
+	return errors.Errorf("%s cannot accept a heredoc as %s.", command, thing)
 }
 
 func errBlankCommandNames(command string) error {

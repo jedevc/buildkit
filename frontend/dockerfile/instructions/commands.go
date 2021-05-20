@@ -188,8 +188,9 @@ func (s SourcesAndDest) Dest() string {
 type AddCommand struct {
 	withNameAndCode
 	SourcesAndDest
-	Chown string
-	Chmod string
+	Content []string
+	Chown   string
+	Chmod   string
 }
 
 // Expand variables
@@ -209,9 +210,10 @@ func (c *AddCommand) Expand(expander SingleWordExpander) error {
 type CopyCommand struct {
 	withNameAndCode
 	SourcesAndDest
-	From  string
-	Chown string
-	Chmod string
+	Content []string
+	From    string
+	Chown   string
+	Chmod   string
 }
 
 // Expand variables
