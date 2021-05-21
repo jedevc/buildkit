@@ -199,9 +199,10 @@ func (s SourcesAndDest) Dest() string {
 type AddCommand struct {
 	withNameAndCode
 	SourcesAndDest
-	Content []string
-	Chown   string
-	Chmod   string
+	Content       []string
+	PreventExpand bool
+	Chown         string
+	Chmod         string
 }
 
 // Expand variables
@@ -211,6 +212,10 @@ func (c *AddCommand) Expand(expander SingleWordExpander) error {
 		return err
 	}
 	c.Chown = expandedChown
+
+	if c.PreventExpand {
+		return nil
+	}
 
 	expandedContent, err := expandSlice(c.Content, expander)
 	if err != nil {
@@ -228,10 +233,11 @@ func (c *AddCommand) Expand(expander SingleWordExpander) error {
 type CopyCommand struct {
 	withNameAndCode
 	SourcesAndDest
-	Content []string
-	From    string
-	Chown   string
-	Chmod   string
+	Content       []string
+	PreventExpand bool
+	From          string
+	Chown         string
+	Chmod         string
 }
 
 // Expand variables
@@ -241,6 +247,10 @@ func (c *CopyCommand) Expand(expander SingleWordExpander) error {
 		return err
 	}
 	c.Chown = expandedChown
+
+	if c.PreventExpand {
+		return nil
+	}
 
 	expandedContent, err := expandSlice(c.Content, expander)
 	if err != nil {

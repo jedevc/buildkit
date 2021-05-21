@@ -31,7 +31,7 @@ type Node struct {
 	Value       string          // actual content
 	Next        *Node           // the next item in the current sexp
 	Children    []*Node         // the children of this sexp
-	Heredoc     []string        // TODO
+	Heredoc     *Heredoc        // TODO
 	Attributes  map[string]bool // special attributes for this node
 	Original    string          // original line used before parsing
 	Flags       []string        // only top Node should have this set
@@ -85,12 +85,18 @@ func (node *Node) AddChild(child *Node, startLine, endLine int) {
 	node.Children = append(node.Children, child)
 }
 
+type Heredoc struct {
+	Name   string
+	Lines  []string
+	Expand bool
+}
+
 var (
 	dispatch     map[string]func(string, *directives) (*Node, map[string]bool, error)
 	reWhitespace = regexp.MustCompile(`[\t\v\f\r ]+`)
 	reDirectives = regexp.MustCompile(`^#\s*([a-zA-Z][a-zA-Z0-9]*)\s*=\s*(.+?)\s*$`)
 	reComment    = regexp.MustCompile(`^#.*$`)
-	reHeredoc    = regexp.MustCompile(`<<(-?)([a-zA-Z][a-zA-Z0-9]+)`)
+	reHeredoc    = regexp.MustCompile(`<<(-?)(['"]?)([a-zA-Z][a-zA-Z0-9]+)(['"]?)`)
 )
 
 // DefaultEscapeToken is the default escape token
@@ -206,7 +212,7 @@ func init() {
 // newNodeFromLine splits the line into parts, and dispatches to a function
 // based on the command and command arguments. A Node is created from the
 // result of the dispatch.
-func newNodeFromLine(line string, d *directives, comments []string, heredoc []string) (*Node, error) {
+func newNodeFromLine(line string, d *directives, comments []string, heredoc *Heredoc) (*Node, error) {
 	cmd, flags, args, err := splitCommand(line)
 	if err != nil {
 		return nil, err
@@ -311,15 +317,22 @@ func Parse(rwc io.Reader) (*Result, error) {
 			warnings = append(warnings, "[WARNING]: Empty continuation line found in:\n    "+line)
 		}
 
-		var heredoc []string
+		var heredoc *Heredoc
 		if match := reHeredoc.FindStringSubmatch(line); len(match) != 0 {
-			heredocChomp := false
-			if match[1] == "-" {
-				heredocChomp = true
-			}
-			heredocName := match[2]
+			heredocChomp := match[1] == "-"
+			heredocQuoteOpen := match[2]
+			heredocName := match[3]
+			heredocQuoteClose := match[4]
 
-			heredoc = []string{}
+			heredocExpand := true
+			if heredocQuoteOpen != "" || heredocQuoteClose != "" {
+				if heredocQuoteOpen != heredocQuoteClose {
+					return nil, withLocation(errors.New("quoted heredoc quotes do not match"), startLine, currentLine)
+				}
+				heredocExpand = false
+			}
+
+			var heredocLines []string
 			for scanner.Scan() {
 				heredocLine := scanner.Text()
 				if heredocChomp {
@@ -329,7 +342,14 @@ func Parse(rwc io.Reader) (*Result, error) {
 				if heredocLine == heredocName {
 					break
 				}
-				heredoc = append(heredoc, heredocLine)
+				heredocLines = append(heredocLines, heredocLine)
+			}
+			// TODO: handle unclosed heredoc
+
+			heredoc = &Heredoc{
+				Name:   heredocName,
+				Lines:  heredocLines,
+				Expand: heredocExpand,
 			}
 		}
 

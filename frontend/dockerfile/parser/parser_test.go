@@ -194,13 +194,34 @@ RUN <<-EOF
 	baz
 	quux
 EOF
+
+RUN <<-'EOF'
+	don't expand me
+EOF
 	`)
 
-	tests := [][]string{
+	tests := []*Heredoc{
 		nil,
-		{},
-		{"\tfoo", "\tbar"},
-		{"baz", "quux"},
+		{
+			Name:   "EOF",
+			Lines:  nil,
+			Expand: true,
+		},
+		{
+			Name:   "EOF",
+			Lines:  []string{"\tfoo", "\tbar"},
+			Expand: true,
+		},
+		{
+			Name:   "EOF",
+			Lines:  []string{"baz", "quux"},
+			Expand: true,
+		},
+		{
+			Name:   "EOF",
+			Lines:  []string{"don't expand me"},
+			Expand: false,
+		},
 	}
 
 	result, err := Parse(dockerfile)
@@ -208,12 +229,8 @@ EOF
 
 	for i, test := range tests {
 		child := result.AST.Children[i+1]
-		require.Equal(t, test, child.Heredoc)
-
 		require.Equal(t, "run", child.Value)
-		if child.Heredoc != nil {
-			require.True(t, IsHeredoc(child.Next.Value))
-		}
+		require.Equal(t, test, child.Heredoc)
 		require.Nil(t, child.Next.Next)
 	}
 }

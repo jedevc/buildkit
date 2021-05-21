@@ -18,7 +18,7 @@ import (
 type parseRequest struct {
 	command    string
 	args       []string
-	heredoc    []string
+	heredoc    *parser.Heredoc
 	attributes map[string]bool
 	flags      *BFlags
 	original   string
@@ -257,17 +257,18 @@ func parseAdd(req parseRequest) (*AddCommand, error) {
 		}
 
 		return &AddCommand{
-			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
-			Content:         req.heredoc,
 			withNameAndCode: newWithNameAndCode(req),
+			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
+			Content:         req.heredoc.Lines,
+			PreventExpand:   !req.heredoc.Expand,
 			Chown:           flChown.Value,
 			Chmod:           flChmod.Value,
 		}, nil
 	}
 
 	return &AddCommand{
-		SourcesAndDest:  SourcesAndDest(req.args),
 		withNameAndCode: newWithNameAndCode(req),
+		SourcesAndDest:  SourcesAndDest(req.args),
 		Chown:           flChown.Value,
 		Chmod:           flChmod.Value,
 	}, nil
@@ -293,19 +294,20 @@ func parseCopy(req parseRequest) (*CopyCommand, error) {
 		}
 
 		return &CopyCommand{
-			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
-			Content:         req.heredoc,
-			From:            flFrom.Value,
 			withNameAndCode: newWithNameAndCode(req),
+			SourcesAndDest:  SourcesAndDest([]string{req.args[1]}),
+			Content:         req.heredoc.Lines,
+			PreventExpand:   !req.heredoc.Expand,
+			From:            flFrom.Value,
 			Chown:           flChown.Value,
 			Chmod:           flChmod.Value,
 		}, nil
 	}
 
 	return &CopyCommand{
+		withNameAndCode: newWithNameAndCode(req),
 		SourcesAndDest:  SourcesAndDest(req.args),
 		From:            flFrom.Value,
-		withNameAndCode: newWithNameAndCode(req),
 		Chown:           flChown.Value,
 		Chmod:           flChmod.Value,
 	}, nil
@@ -397,8 +399,8 @@ func parseShellDependentCommand(req parseRequest, emptyAsNil bool, allowHeredoc 
 			return ShellDependantCmdLine{}, errors.Errorf("Bad heredoc shell command")
 		}
 
-		cmds := make([]strslice.StrSlice, len(req.heredoc))
-		for i, cmd := range req.heredoc {
+		cmds := make([]strslice.StrSlice, len(req.heredoc.Lines))
+		for i, cmd := range req.heredoc.Lines {
 			cmds[i] = strslice.StrSlice{cmd}
 		}
 		return ShellDependantCmdLine{
