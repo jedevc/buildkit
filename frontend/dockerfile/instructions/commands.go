@@ -103,6 +103,17 @@ func expandKvpsInPlace(kvps KeyValuePairs, expander SingleWordExpander) error {
 	return nil
 }
 
+func expandSlice(values []string, expander SingleWordExpander) ([]string, error) {
+	newValues := make([]string, len(values))
+	for i, v := range values {
+		newValue, err := expander(v)
+		if err != nil {
+			return nil, err
+		}
+		newValues[i] = newValue
+	}
+	return newValues, nil
+}
 func expandSliceInPlace(values []string, expander SingleWordExpander) error {
 	for i, v := range values {
 		newValue, err := expander(v)
@@ -200,6 +211,13 @@ func (c *AddCommand) Expand(expander SingleWordExpander) error {
 		return err
 	}
 	c.Chown = expandedChown
+
+	expandedContent, err := expandSlice(c.Content, expander)
+	if err != nil {
+		return err
+	}
+	c.Content = expandedContent
+
 	return expandSliceInPlace(c.SourcesAndDest, expander)
 }
 
@@ -223,6 +241,13 @@ func (c *CopyCommand) Expand(expander SingleWordExpander) error {
 		return err
 	}
 	c.Chown = expandedChown
+
+	expandedContent, err := expandSlice(c.Content, expander)
+	if err != nil {
+		return err
+	}
+	c.Content = expandedContent
+
 	return expandSliceInPlace(c.SourcesAndDest, expander)
 }
 
