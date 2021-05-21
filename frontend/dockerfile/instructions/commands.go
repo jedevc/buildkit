@@ -278,7 +278,7 @@ func (c *WorkdirCommand) Expand(expander SingleWordExpander) error {
 
 // ShellDependantCmdLine represents a cmdline optionally prepended with the shell
 type ShellDependantCmdLine struct {
-	CmdLine      strslice.StrSlice
+	CmdLines     []strslice.StrSlice
 	PrependShell bool
 }
 

@@ -390,16 +390,32 @@ func parseWorkdir(req parseRequest) (*WorkdirCommand, error) {
 
 }
 
-func parseShellDependentCommand(req parseRequest, emptyAsNil bool) ShellDependantCmdLine {
+func parseShellDependentCommand(req parseRequest, emptyAsNil bool, allowHeredoc bool) (ShellDependantCmdLine, error) {
+	if allowHeredoc && req.heredoc != nil {
+		if len(req.args) != 1 || !parser.IsHeredoc(req.args[0]) {
+			// FIXME: this is not a good error message
+			return ShellDependantCmdLine{}, errors.Errorf("Bad heredoc shell command")
+		}
+
+		cmds := make([]strslice.StrSlice, len(req.heredoc))
+		for i, cmd := range req.heredoc {
+			cmds[i] = strslice.StrSlice{cmd}
+		}
+		return ShellDependantCmdLine{
+			CmdLines:     cmds,
+			PrependShell: true,
+		}, nil
+	}
+
 	args := handleJSONArgs(req.args, req.attributes)
 	cmd := strslice.StrSlice(args)
 	if emptyAsNil && len(cmd) == 0 {
 		cmd = nil
 	}
 	return ShellDependantCmdLine{
-		CmdLine:      cmd,
+		CmdLines:     []strslice.StrSlice{cmd},
 		PrependShell: !req.attributes["json"],
-	}
+	}, nil
 }
 
 func parseRun(req parseRequest) (*RunCommand, error) {
@@ -415,7 +431,13 @@ func parseRun(req parseRequest) (*RunCommand, error) {
 		return nil, err
 	}
 	cmd.FlagsUsed = req.flags.Used()
-	cmd.ShellDependantCmdLine = parseShellDependentCommand(req, false)
+
+	cmdline, err := parseShellDependentCommand(req, false, true)
+	if err != nil {
+		return nil, err
+	}
+	cmd.ShellDependantCmdLine = cmdline
+
 	cmd.withNameAndCode = newWithNameAndCode(req)
 
 	for _, fn := range parseRunPostHooks {
@@ -431,11 +453,16 @@ func parseCmd(req parseRequest) (*CmdCommand, error) {
 	if err := req.flags.Parse(); err != nil {
 		return nil, err
 	}
+
+	cmdline, err := parseShellDependentCommand(req, false, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &CmdCommand{
-		ShellDependantCmdLine: parseShellDependentCommand(req, false),
+		ShellDependantCmdLine: cmdline,
 		withNameAndCode:       newWithNameAndCode(req),
 	}, nil
-
 }
 
 func parseEntrypoint(req parseRequest) (*EntrypointCommand, error) {
@@ -443,12 +470,15 @@ func parseEntrypoint(req parseRequest) (*EntrypointCommand, error) {
 		return nil, err
 	}
 
-	cmd := &EntrypointCommand{
-		ShellDependantCmdLine: parseShellDependentCommand(req, true),
-		withNameAndCode:       newWithNameAndCode(req),
+	cmdline, err := parseShellDependentCommand(req, true, false)
+	if err != nil {
+		return nil, err
 	}
 
-	return cmd, nil
+	return &EntrypointCommand{
+		ShellDependantCmdLine: cmdline,
+		withNameAndCode:       newWithNameAndCode(req),
+	}, nil
 }
 
 // parseOptInterval(flag) is the duration of flag.Value, or 0 if

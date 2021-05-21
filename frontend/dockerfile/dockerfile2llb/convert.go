@@ -647,10 +647,23 @@ func dispatchEnv(d *dispatchState, c *instructions.EnvCommand) error {
 }
 
 func dispatchRun(d *dispatchState, c *instructions.RunCommand, proxy *llb.ProxyEnv, sources []*dispatchState, dopt dispatchOpt) error {
-	var args []string = c.CmdLine
-	if c.PrependShell {
-		args = withShell(d.image, args)
+	var args []string
+	if len(c.CmdLines) > 1 {
+		if !c.PrependShell {
+			return errors.Errorf("RUN heredocs must use a prepended shell")
+		}
+		cmdlines := make([][]string, len(c.CmdLines))
+		for i, cmdline := range c.CmdLines {
+			cmdlines[i] = []string(cmdline)
+		}
+		args = withShellMultiple(d.image, cmdlines)
+	} else {
+		args = c.CmdLines[0]
+		if c.PrependShell {
+			args = withShell(d.image, args)
+		}
 	}
+
 	env, err := d.state.Env(context.TODO())
 	if err != nil {
 		return err
@@ -1005,7 +1018,11 @@ func dispatchOnbuild(d *dispatchState, c *instructions.OnbuildCommand) error {
 }
 
 func dispatchCmd(d *dispatchState, c *instructions.CmdCommand) error {
-	var args []string = c.CmdLine
+	if len(c.CmdLines) > 1 {
+		return errors.Errorf("CMD does not support multiple commands")
+	}
+
+	var args []string = c.CmdLines[0]
 	if c.PrependShell {
 		args = withShell(d.image, args)
 	}
@@ -1016,7 +1033,11 @@ func dispatchCmd(d *dispatchState, c *instructions.CmdCommand) error {
 }
 
 func dispatchEntrypoint(d *dispatchState, c *instructions.EntrypointCommand) error {
-	var args []string = c.CmdLine
+	if len(c.CmdLines) > 1 {
+		return errors.Errorf("ENTRYPOINT does not support multiple commands")
+	}
+	var args []string = c.CmdLines[0]
+
 	if c.PrependShell {
 		args = withShell(d.image, args)
 	}
@@ -1382,6 +1403,22 @@ func withShell(img Image, args []string) []string {
 		shell = defaultShell(img.OS)
 	}
 	return append(shell, strings.Join(args, " "))
+}
+func withShellMultiple(img Image, commands [][]string) []string {
+	newCommands := make([]string, len(commands))
+	for i, args := range commands {
+		newCommands[i] = strings.Join(args, " ")
+	}
+	full := strings.Join(newCommands, ";")
+
+	var shell []string
+	if len(img.Config.Shell) > 0 {
+		shell = append([]string{}, img.Config.Shell...)
+	} else {
+		shell = defaultShell(img.OS)
+	}
+
+	return append(shell, full)
 }
 
 func autoDetectPlatform(img Image, target specs.Platform, supported []specs.Platform) specs.Platform {
