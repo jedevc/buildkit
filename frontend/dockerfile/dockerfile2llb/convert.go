@@ -833,8 +833,14 @@ func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, content
 	}
 
 	if content != nil {
+		var data string
+		if d.image.OS == "windows" {
+			data = strings.Join(content, "\r\n")
+		} else {
+			data = strings.Join(content, "\n")
+		}
+
 		f := "__unnamed__"
-		data := strings.Join(content, "\n") // TODO: windows line endings?
 		st := llb.Scratch().Dir("/").File(llb.Mkfile(f, 0664, []byte(data)))
 
 		opts := append([]llb.CopyOption{&llb.CopyInfo{
