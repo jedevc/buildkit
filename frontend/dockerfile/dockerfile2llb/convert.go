@@ -3,6 +3,7 @@ package dockerfile2llb
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -1405,12 +1406,6 @@ func withShell(img Image, args []string) []string {
 	return append(shell, strings.Join(args, " "))
 }
 func withShellMultiple(img Image, commands [][]string) []string {
-	newCommands := make([]string, len(commands))
-	for i, args := range commands {
-		newCommands[i] = strings.Join(args, " ")
-	}
-	full := strings.Join(newCommands, ";")
-
 	var shell []string
 	if len(img.Config.Shell) > 0 {
 		shell = append([]string{}, img.Config.Shell...)
@@ -1418,7 +1413,26 @@ func withShellMultiple(img Image, commands [][]string) []string {
 		shell = defaultShell(img.OS)
 	}
 
-	return append(shell, full)
+	joinedCommands := make([]string, len(commands))
+	for i, args := range commands {
+		joinedCommands[i] = strings.Join(args, " ")
+	}
+
+	if img.OS == "windows" {
+		// FIXME: This is a naive approach, and doesn't quite work like the
+		// other approaches, specifically in cases where a single command can
+		// span multiple lines.
+		script := strings.Join(joinedCommands, " & ")
+		return append(shell, script)
+	}
+
+	// This approach is a little hacky, but allows us to encode an entire
+	// script into the run command in a single layer. With this technique, it
+	// behaves *exactly* like a shell script, because it's just reading the
+	// script from stdin.
+	script := strings.Join(joinedCommands, "\n")
+	scriptExpanded := fmt.Sprintf("echo %s | base64 -d | sh -s", base64.StdEncoding.EncodeToString([]byte(script)))
+	return append(shell, scriptExpanded)
 }
 
 func autoDetectPlatform(img Image, target specs.Platform, supported []specs.Platform) specs.Platform {
