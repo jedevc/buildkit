@@ -31,7 +31,7 @@ type Node struct {
 	Value       string          // actual content
 	Next        *Node           // the next item in the current sexp
 	Children    []*Node         // the children of this sexp
-	Heredoc     *Heredoc        // TODO
+	Heredoc     *Heredoc        // extra heredoc content attachment
 	Attributes  map[string]bool // special attributes for this node
 	Original    string          // original line used before parsing
 	Flags       []string        // only top Node should have this set
@@ -332,19 +332,23 @@ func Parse(rwc io.Reader) (*Result, error) {
 				heredocExpand = false
 			}
 
+			var heredocLine string
 			var heredocLines []string
 			for scanner.Scan() {
-				heredocLine := scanner.Text()
+				heredocLine = scanner.Text()
 				if heredocChomp {
 					heredocLine = strings.TrimLeftFunc(heredocLine, unicode.IsSpace)
 				}
+				currentLine++
 
 				if heredocLine == heredocName {
 					break
 				}
 				heredocLines = append(heredocLines, heredocLine)
 			}
-			// TODO: handle unclosed heredoc
+			if heredocLine != heredocName {
+				return nil, withLocation(errors.New("unterminated heredoc"), startLine, currentLine)
+			}
 
 			heredoc = &Heredoc{
 				Name:   heredocName,

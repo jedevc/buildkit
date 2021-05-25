@@ -248,12 +248,15 @@ func parseAdd(req parseRequest) (*AddCommand, error) {
 		return nil, err
 	}
 
-	if req.heredoc != nil && parser.IsHeredoc(req.args[0]) {
+	if req.heredoc != nil {
 		if len(req.args) != 2 {
 			return nil, errExactlyTwoArguments("ADD")
 		}
 		if parser.IsHeredoc(req.args[1]) {
 			return nil, errBadHeredoc("ADD", "a destination")
+		}
+		if !parser.IsHeredoc(req.args[0]) {
+			panic("First argument must be a heredoc, or somehow the parsing has gone wrong!")
 		}
 
 		return &AddCommand{
@@ -285,12 +288,15 @@ func parseCopy(req parseRequest) (*CopyCommand, error) {
 		return nil, err
 	}
 
-	if req.heredoc != nil && parser.IsHeredoc(req.args[0]) {
+	if req.heredoc != nil {
 		if len(req.args) != 2 {
 			return nil, errExactlyTwoArguments("COPY")
 		}
 		if parser.IsHeredoc(req.args[1]) {
 			return nil, errBadHeredoc("COPY", "a destination")
+		}
+		if !parser.IsHeredoc(req.args[0]) {
+			panic("First argument must be a heredoc, or somehow the parsing has gone wrong!")
 		}
 
 		return &CopyCommand{
@@ -394,9 +400,8 @@ func parseWorkdir(req parseRequest) (*WorkdirCommand, error) {
 
 func parseShellDependentCommand(req parseRequest, emptyAsNil bool, allowHeredoc bool) (ShellDependantCmdLine, error) {
 	if allowHeredoc && req.heredoc != nil {
-		if len(req.args) != 1 || !parser.IsHeredoc(req.args[0]) {
-			// FIXME: this is not a good error message
-			return ShellDependantCmdLine{}, errors.Errorf("Bad heredoc shell command")
+		if !(len(req.args) == 1 && parser.IsHeredoc(req.args[0])) {
+			return ShellDependantCmdLine{}, errExactlyOneArgument(req.command + " with heredoc")
 		}
 
 		cmds := make([]strslice.StrSlice, len(req.heredoc.Lines))
