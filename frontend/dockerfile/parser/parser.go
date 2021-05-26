@@ -75,6 +75,17 @@ func (node *Node) lines(start, end int) {
 	node.EndLine = end
 }
 
+func (node *Node) canContainHeredoc() bool {
+	if _, allowedDirective := heredocDirectives[node.Value]; !allowedDirective {
+		return false
+	}
+	if _, isJSON := node.Attributes["json"]; isJSON {
+		return false
+	}
+
+	return true
+}
+
 // AddChild adds a new child node, and updates line information
 func (node *Node) AddChild(child *Node, startLine, endLine int) {
 	child.lines(startLine, endLine)
@@ -328,7 +339,7 @@ func Parse(rwc io.Reader) (*Result, error) {
 			return nil, withLocation(err, startLine, currentLine)
 		}
 
-		if _, ok := heredocDirectives[child.Value]; ok {
+		if child.canContainHeredoc() {
 			if match := reHeredoc.FindStringSubmatch(line); len(match) != 0 {
 				heredocChomp := match[1] == "-"
 				heredocQuoteOpen := match[2]

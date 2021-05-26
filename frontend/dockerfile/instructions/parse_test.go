@@ -267,15 +267,20 @@ func TestCopyHeredoc(t *testing.T) {
 			content:    nil,
 		},
 		{
-			dockerfile: "COPY <<EOF /bar\nEOF",
-			content:    []string{},
+			dockerfile: `COPY <<EOF /bar
+EOF`,
+			content: []string{},
 		},
 		{
-			dockerfile: "COPY <<EOF /bar\nTESTING\nEOF",
-			content:    []string{"TESTING"},
+			dockerfile: `COPY <<EOF /bar
+TESTING
+EOF`,
+			content: []string{"TESTING"},
 		},
 		{
-			dockerfile:    "COPY <<'EOF' /bar\nTESTING\nEOF",
+			dockerfile: `COPY <<'EOF' /bar
+TESTING
+EOF`,
 			content:       []string{"TESTING"},
 			preventExpand: true,
 		},
@@ -297,28 +302,31 @@ func TestCopyHeredoc(t *testing.T) {
 func TestRunHeredoc(t *testing.T) {
 	cases := []struct {
 		dockerfile string
-		commands   []strslice.StrSlice
 		shell      bool
+		commands   []strslice.StrSlice
 	}{
-		{
-			dockerfile: "RUN ls /",
-			commands:   []strslice.StrSlice{{"ls /"}},
-			shell:      true,
-		},
 		{
 			dockerfile: `RUN ["ls", "/"]`,
 			commands:   []strslice.StrSlice{{"ls", "/"}},
 			shell:      false,
 		},
 		{
-			dockerfile: "RUN [\"<<EOF\"]\nls /\nEOF",
+			dockerfile: `RUN ["<<EOF"]`,
+			commands:   []strslice.StrSlice{{"<<EOF"}},
+			shell:      false,
+		},
+		{
+			dockerfile: "RUN ls /",
 			commands:   []strslice.StrSlice{{"ls /"}},
 			shell:      true,
 		},
 		{
-			dockerfile: "RUN <<EOF\nls /\nwhoami\nEOF",
-			commands:   []strslice.StrSlice{{"ls /"}, {"whoami"}},
-			shell:      true,
+			dockerfile: `RUN <<EOF
+ls /
+whoami
+EOF`,
+			commands: []strslice.StrSlice{{"ls /"}, {"whoami"}},
+			shell:    true,
 		},
 	}
 
@@ -330,6 +338,7 @@ func TestRunHeredoc(t *testing.T) {
 		n := ast.AST.Children[0]
 		comm, err := ParseInstruction(n)
 		require.NoError(t, err)
+		require.Equal(t, c.shell, comm.(*RunCommand).PrependShell)
 		require.Equal(t, c.commands, comm.(*RunCommand).CmdLines)
 	}
 }

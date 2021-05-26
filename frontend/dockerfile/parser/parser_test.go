@@ -180,6 +180,8 @@ func TestParseExtractsHeredoc(t *testing.T) {
 	dockerfile := bytes.NewBufferString(`
 FROM alpine:3.6
 
+ENV NAME=me
+
 RUN ls
 
 USER <<INVALID
@@ -198,12 +200,32 @@ RUN <<-UNINDENT
 	quux
 UNINDENT
 
+RUN <<-EXPAND
+	expand $NAME
+EXPAND
+
 RUN <<-'NOEXPAND'
-	don't expand me
+	don't expand $NAME
 NOEXPAND
+
+RUN <<COPY
+echo hello world
+echo foo bar
+COPY
+
+RUN <<COMMENT
+# internal comment
+echo hello world
+echo foo bar # trailing comment
+COMMENT
+
+RUN --mount=type=cache,target=/foo <<MOUNT
+echo hello
+MOUNT
 	`)
 
 	tests := []*Heredoc{
+		nil, // ENV EXAMPLE=bla
 		nil, // RUN ls
 		nil, // USER <<INVALID
 		nil, // INVALID
@@ -226,10 +248,34 @@ NOEXPAND
 			Expand: true,
 		},
 		{
+			// RUN <<-EXPAND
+			Name:   "EXPAND",
+			Lines:  []string{"expand $NAME"},
+			Expand: true,
+		},
+		{
 			// RUN <<-'NOEXPAND'
 			Name:   "NOEXPAND",
-			Lines:  []string{"don't expand me"},
+			Lines:  []string{"don't expand $NAME"},
 			Expand: false,
+		},
+		{
+			// RUN <<COPY
+			Name:   "COPY",
+			Lines:  []string{"echo hello world", "echo foo bar"},
+			Expand: true,
+		},
+		{
+			// RUN <<COMMENT
+			Name:   "COMMENT",
+			Lines:  []string{"# internal comment", "echo hello world", "echo foo bar # trailing comment"},
+			Expand: true,
+		},
+		{
+			// RUN <<MOUNT
+			Name:   "MOUNT",
+			Lines:  []string{"echo hello"},
+			Expand: true,
 		},
 	}
 
@@ -239,5 +285,23 @@ NOEXPAND
 	for i, test := range tests {
 		child := result.AST.Children[i+1]
 		require.Equal(t, test, child.Heredoc)
+	}
+}
+
+func TestParseJSONHeredoc(t *testing.T) {
+	dockerfile := bytes.NewBufferString(`
+FROM alpine:3.6
+
+RUN ["whoami"]
+RUN ["<<EOF"]
+RUN ["<<'EOF'"]
+	`)
+
+	result, err := Parse(dockerfile)
+	require.NoError(t, err)
+
+	for i := 1; i <= 3; i++ {
+		child := result.AST.Children[i]
+		require.Nil(t, child.Heredoc)
 	}
 }
