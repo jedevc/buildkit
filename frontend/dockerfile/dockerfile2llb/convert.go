@@ -832,7 +832,7 @@ func dispatchCopyFileOp(d *dispatchState, c instructions.SourcesAndDest, content
 		}
 	}
 
-	if content != nil {
+	if len(content) > 0 {
 		var data string
 		if d.image.OS == "windows" {
 			data = strings.Join(content, "\r\n")
@@ -884,7 +884,7 @@ func dispatchCopy(d *dispatchState, c instructions.SourcesAndDest, content []str
 		return dispatchCopyFileOp(d, c, content, sourceState, isAddCommand, cmdToPrint, chown, chmod, loc, opt)
 	}
 
-	if content != nil {
+	if len(content) > 0 {
 		return errors.New("inline content is not supported")
 	}
 
