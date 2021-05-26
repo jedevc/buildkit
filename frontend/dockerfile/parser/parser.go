@@ -92,11 +92,12 @@ type Heredoc struct {
 }
 
 var (
-	dispatch     map[string]func(string, *directives) (*Node, map[string]bool, error)
-	reWhitespace = regexp.MustCompile(`[\t\v\f\r ]+`)
-	reDirectives = regexp.MustCompile(`^#\s*([a-zA-Z][a-zA-Z0-9]*)\s*=\s*(.+?)\s*$`)
-	reComment    = regexp.MustCompile(`^#.*$`)
-	reHeredoc    = regexp.MustCompile(`<<(-?)(['"]?)([a-zA-Z][a-zA-Z0-9]+)(['"]?)`)
+	dispatch          map[string]func(string, *directives) (*Node, map[string]bool, error)
+	heredocDirectives map[string]bool
+	reWhitespace      = regexp.MustCompile(`[\t\v\f\r ]+`)
+	reDirectives      = regexp.MustCompile(`^#\s*([a-zA-Z][a-zA-Z0-9]*)\s*=\s*(.+?)\s*$`)
+	reComment         = regexp.MustCompile(`^#.*$`)
+	reHeredoc         = regexp.MustCompile(`<<(-?)(['"]?)([a-zA-Z][a-zA-Z0-9]+)(['"]?)`)
 )
 
 // DefaultEscapeToken is the default escape token
@@ -207,12 +208,18 @@ func init() {
 		command.Volume:      parseMaybeJSONToList,
 		command.Workdir:     parseString,
 	}
+
+	heredocDirectives = map[string]bool{
+		command.Add:  true,
+		command.Copy: true,
+		command.Run:  true,
+	}
 }
 
 // newNodeFromLine splits the line into parts, and dispatches to a function
 // based on the command and command arguments. A Node is created from the
 // result of the dispatch.
-func newNodeFromLine(line string, d *directives, comments []string, heredoc *Heredoc) (*Node, error) {
+func newNodeFromLine(line string, d *directives, comments []string) (*Node, error) {
 	cmd, flags, args, err := splitCommand(line)
 	if err != nil {
 		return nil, err
@@ -234,7 +241,6 @@ func newNodeFromLine(line string, d *directives, comments []string, heredoc *Her
 		Flags:       flags,
 		Next:        next,
 		Attributes:  attrs,
-		Heredoc:     heredoc,
 		PrevComment: comments,
 	}, nil
 }
@@ -317,52 +323,54 @@ func Parse(rwc io.Reader) (*Result, error) {
 			warnings = append(warnings, "[WARNING]: Empty continuation line found in:\n    "+line)
 		}
 
-		var heredoc *Heredoc
-		if match := reHeredoc.FindStringSubmatch(line); len(match) != 0 {
-			heredocChomp := match[1] == "-"
-			heredocQuoteOpen := match[2]
-			heredocName := match[3]
-			heredocQuoteClose := match[4]
-
-			heredocExpand := true
-			if heredocQuoteOpen != "" || heredocQuoteClose != "" {
-				if heredocQuoteOpen != heredocQuoteClose {
-					return nil, withLocation(errors.New("quoted heredoc quotes do not match"), startLine, currentLine)
-				}
-				heredocExpand = false
-			}
-
-			var heredocLine string
-			var heredocLines []string
-			for scanner.Scan() {
-				heredocLine = scanner.Text()
-				if heredocChomp {
-					heredocLine = strings.TrimLeftFunc(heredocLine, unicode.IsSpace)
-				}
-				currentLine++
-
-				if heredocLine == heredocName {
-					break
-				}
-				heredocLines = append(heredocLines, heredocLine)
-			}
-			if heredocLine != heredocName {
-				return nil, withLocation(errors.New("unterminated heredoc"), startLine, currentLine)
-			}
-
-			heredoc = &Heredoc{
-				Name:   heredocName,
-				Lines:  heredocLines,
-				Expand: heredocExpand,
-			}
-		}
-
-		child, err := newNodeFromLine(line, d, comments, heredoc)
+		child, err := newNodeFromLine(line, d, comments)
 		if err != nil {
 			return nil, withLocation(err, startLine, currentLine)
 		}
-		comments = nil
+
+		if _, ok := heredocDirectives[child.Value]; ok {
+			if match := reHeredoc.FindStringSubmatch(line); len(match) != 0 {
+				heredocChomp := match[1] == "-"
+				heredocQuoteOpen := match[2]
+				heredocName := match[3]
+				heredocQuoteClose := match[4]
+
+				heredocExpand := true
+				if heredocQuoteOpen != "" || heredocQuoteClose != "" {
+					if heredocQuoteOpen != heredocQuoteClose {
+						return nil, withLocation(errors.New("quoted heredoc quotes do not match"), startLine, currentLine)
+					}
+					heredocExpand = false
+				}
+
+				var heredocLine string
+				var heredocLines []string
+				for scanner.Scan() {
+					heredocLine = scanner.Text()
+					if heredocChomp {
+						heredocLine = strings.TrimLeftFunc(heredocLine, unicode.IsSpace)
+					}
+					currentLine++
+
+					if heredocLine == heredocName {
+						break
+					}
+					heredocLines = append(heredocLines, heredocLine)
+				}
+				if heredocLine != heredocName {
+					return nil, withLocation(errors.New("unterminated heredoc"), startLine, currentLine)
+				}
+
+				child.Heredoc = &Heredoc{
+					Name:   heredocName,
+					Lines:  heredocLines,
+					Expand: heredocExpand,
+				}
+			}
+		}
+
 		root.AddChild(child, startLine, currentLine)
+		comments = nil
 	}
 
 	if len(warnings) > 0 {

@@ -182,43 +182,52 @@ FROM alpine:3.6
 
 RUN ls
 
-RUN <<EOF
-EOF
+USER <<INVALID
+INVALID
 
-RUN <<EOF
+RUN <<EMPTY
+EMPTY
+
+RUN <<INDENT
 	foo
 	bar
-EOF
+INDENT
 
-RUN <<-EOF
+RUN <<-UNINDENT
 	baz
 	quux
-EOF
+UNINDENT
 
-RUN <<-'EOF'
+RUN <<-'NOEXPAND'
 	don't expand me
-EOF
+NOEXPAND
 	`)
 
 	tests := []*Heredoc{
-		nil,
+		nil, // RUN ls
+		nil, // USER <<INVALID
+		nil, // INVALID
 		{
-			Name:   "EOF",
+			// RUN <<EMPTY
+			Name:   "EMPTY",
 			Lines:  nil,
 			Expand: true,
 		},
 		{
-			Name:   "EOF",
+			// RUN <<INDENT
+			Name:   "INDENT",
 			Lines:  []string{"\tfoo", "\tbar"},
 			Expand: true,
 		},
 		{
-			Name:   "EOF",
+			// RUN <<-UNINDENT
+			Name:   "UNINDENT",
 			Lines:  []string{"baz", "quux"},
 			Expand: true,
 		},
 		{
-			Name:   "EOF",
+			// RUN <<-'NOEXPAND'
+			Name:   "NOEXPAND",
 			Lines:  []string{"don't expand me"},
 			Expand: false,
 		},
@@ -229,8 +238,6 @@ EOF
 
 	for i, test := range tests {
 		child := result.AST.Children[i+1]
-		require.Equal(t, "run", child.Value)
 		require.Equal(t, test, child.Heredoc)
-		require.Nil(t, child.Next.Next)
 	}
 }
