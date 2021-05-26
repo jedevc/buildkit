@@ -336,7 +336,7 @@ func Parse(rwc io.Reader) (*Result, error) {
 				heredocQuoteClose := match[4]
 
 				heredocExpand := true
-				if heredocQuoteOpen != "" || heredocQuoteClose != "" {
+				if heredocQuoteOpen != "" {
 					if heredocQuoteOpen != heredocQuoteClose {
 						return nil, withLocation(errors.New("quoted heredoc quotes do not match"), startLine, currentLine)
 					}
@@ -344,7 +344,7 @@ func Parse(rwc io.Reader) (*Result, error) {
 				}
 
 				var heredocLine string
-				var heredocLines []string
+				var heredocLines []string = []string{}
 				for scanner.Scan() {
 					heredocLine = scanner.Text()
 					if heredocChomp {

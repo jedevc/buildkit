@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/docker/api/types/strslice"
 	"github.com/moby/buildkit/frontend/dockerfile/command"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/stretchr/testify/require"
@@ -188,14 +189,19 @@ func TestErrorCases(t *testing.T) {
 			expectedError: "COPY requires at least two arguments",
 		},
 		{
+			name:          "COPY heredoc destination",
+			dockerfile:    "COPY /foo <<EOF\nEOF",
+			expectedError: "COPY cannot accept a heredoc as a destination",
+		},
+		{
+			name:          "COPY heredoc extra args",
+			dockerfile:    "COPY <<EOF /foo /bar\nEOF",
+			expectedError: "COPY requires exactly two arguments",
+		},
+		{
 			name:          "ONBUILD forbidden FROM",
 			dockerfile:    "ONBUILD FROM scratch",
 			expectedError: "FROM isn't allowed as an ONBUILD trigger",
-		},
-		{
-			name:          "ONBUILD forbidden MAINTAINER",
-			dockerfile:    "ONBUILD MAINTAINER docker.io",
-			expectedError: "MAINTAINER isn't allowed as an ONBUILD trigger",
 		},
 		{
 			name:          "MAINTAINER unknown flag",
@@ -206,6 +212,16 @@ func TestErrorCases(t *testing.T) {
 			name:          "Chaining ONBUILD",
 			dockerfile:    `ONBUILD ONBUILD RUN touch foobar`,
 			expectedError: "Chaining ONBUILD via `ONBUILD ONBUILD` isn't allowed",
+		},
+		{
+			name:          "RUN heredoc with extra args",
+			dockerfile:    "RUN <<EOF invalid\nEOF",
+			expectedError: "RUN with heredoc requires exactly one argument",
+		},
+		{
+			name:          "Invalid instruction",
+			dockerfile:    `foo bar`,
+			expectedError: "unknown instruction: FOO",
 		},
 		{
 			name:          "Invalid instruction",
@@ -238,4 +254,82 @@ func TestRunCmdFlagsUsed(t *testing.T) {
 	require.NoError(t, err)
 	require.IsType(t, c, &RunCommand{})
 	require.Equal(t, []string{"mount"}, c.(*RunCommand).FlagsUsed)
+}
+
+func TestCopyHeredoc(t *testing.T) {
+	cases := []struct {
+		dockerfile    string
+		content       []string
+		preventExpand bool
+	}{
+		{
+			dockerfile: "COPY /foo /bar",
+			content:    nil,
+		},
+		{
+			dockerfile: "COPY <<EOF /bar\nEOF",
+			content:    []string{},
+		},
+		{
+			dockerfile: "COPY <<EOF /bar\nTESTING\nEOF",
+			content:    []string{"TESTING"},
+		},
+		{
+			dockerfile:    "COPY <<'EOF' /bar\nTESTING\nEOF",
+			content:       []string{"TESTING"},
+			preventExpand: true,
+		},
+	}
+
+	for _, c := range cases {
+		r := strings.NewReader(c.dockerfile)
+		ast, err := parser.Parse(r)
+		require.NoError(t, err)
+
+		n := ast.AST.Children[0]
+		comm, err := ParseInstruction(n)
+		require.NoError(t, err)
+		require.Equal(t, c.content, comm.(*CopyCommand).Content)
+		require.Equal(t, c.preventExpand, comm.(*CopyCommand).PreventExpand)
+	}
+}
+
+func TestRunHeredoc(t *testing.T) {
+	cases := []struct {
+		dockerfile string
+		commands   []strslice.StrSlice
+		shell      bool
+	}{
+		{
+			dockerfile: "RUN ls /",
+			commands:   []strslice.StrSlice{{"ls /"}},
+			shell:      true,
+		},
+		{
+			dockerfile: `RUN ["ls", "/"]`,
+			commands:   []strslice.StrSlice{{"ls", "/"}},
+			shell:      false,
+		},
+		{
+			dockerfile: "RUN [\"<<EOF\"]\nls /\nEOF",
+			commands:   []strslice.StrSlice{{"ls /"}},
+			shell:      true,
+		},
+		{
+			dockerfile: "RUN <<EOF\nls /\nwhoami\nEOF",
+			commands:   []strslice.StrSlice{{"ls /"}, {"whoami"}},
+			shell:      true,
+		},
+	}
+
+	for _, c := range cases {
+		r := strings.NewReader(c.dockerfile)
+		ast, err := parser.Parse(r)
+		require.NoError(t, err)
+
+		n := ast.AST.Children[0]
+		comm, err := ParseInstruction(n)
+		require.NoError(t, err)
+		require.Equal(t, c.commands, comm.(*RunCommand).CmdLines)
+	}
 }

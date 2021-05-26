@@ -210,7 +210,7 @@ NOEXPAND
 		{
 			// RUN <<EMPTY
 			Name:   "EMPTY",
-			Lines:  nil,
+			Lines:  []string{},
 			Expand: true,
 		},
 		{

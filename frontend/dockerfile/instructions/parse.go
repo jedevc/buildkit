@@ -398,10 +398,10 @@ func parseWorkdir(req parseRequest) (*WorkdirCommand, error) {
 
 }
 
-func parseShellDependentCommand(req parseRequest, emptyAsNil bool, allowHeredoc bool) (ShellDependantCmdLine, error) {
+func parseShellDependentCommand(req parseRequest, command string, emptyAsNil bool, allowHeredoc bool) (ShellDependantCmdLine, error) {
 	if allowHeredoc && req.heredoc != nil {
 		if !(len(req.args) == 1 && parser.IsHeredoc(req.args[0])) {
-			return ShellDependantCmdLine{}, errExactlyOneArgument(req.command + " with heredoc")
+			return ShellDependantCmdLine{}, errExactlyOneArgument(command + " with heredoc")
 		}
 
 		cmds := make([]strslice.StrSlice, len(req.heredoc.Lines))
@@ -439,7 +439,7 @@ func parseRun(req parseRequest) (*RunCommand, error) {
 	}
 	cmd.FlagsUsed = req.flags.Used()
 
-	cmdline, err := parseShellDependentCommand(req, false, true)
+	cmdline, err := parseShellDependentCommand(req, "RUN", false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func parseCmd(req parseRequest) (*CmdCommand, error) {
 		return nil, err
 	}
 
-	cmdline, err := parseShellDependentCommand(req, false, false)
+	cmdline, err := parseShellDependentCommand(req, "CMD", false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func parseEntrypoint(req parseRequest) (*EntrypointCommand, error) {
 		return nil, err
 	}
 
-	cmdline, err := parseShellDependentCommand(req, true, false)
+	cmdline, err := parseShellDependentCommand(req, "ENTRYPOINT", true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +732,7 @@ func errNoDestinationArgument(command string) error {
 }
 
 func errBadHeredoc(command string, thing string) error {
-	return errors.Errorf("%s cannot accept a heredoc as %s.", command, thing)
+	return errors.Errorf("%s cannot accept a heredoc as %s", command, thing)
 }
 
 func errBlankCommandNames(command string) error {
