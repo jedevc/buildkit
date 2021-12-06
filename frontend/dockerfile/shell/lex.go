@@ -303,8 +303,8 @@ func (sw *shellWord) processDollar() (string, error) {
 		}
 		return value, nil
 	}
-
 	sw.scanner.Next()
+
 	switch sw.scanner.Peek() {
 	case scanner.EOF:
 		return "", errors.New("syntax error: missing '}'")
@@ -312,7 +312,9 @@ func (sw *shellWord) processDollar() (string, error) {
 		// Invalid ${{xx}, ${:xx}, ${:}. ${} case
 		return "", errors.New("syntax error: bad substitution")
 	}
+
 	name := sw.processName()
+
 	ch := sw.scanner.Next()
 	switch ch {
 	case '}':

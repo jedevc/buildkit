@@ -225,3 +225,124 @@ func TestGetEnv(t *testing.T) {
 		t.Fatal("8 - 'car' should map to 'bike'")
 	}
 }
+
+func TestShellParserReplacements(t *testing.T) {
+	shlex := NewLex('\\')
+	setEnvs := []string{"FOO=foo", "EMPTY="}
+
+	var newWord string
+	var err error
+
+	// sanity
+	newWord, err = shlex.ProcessWord("${FOO}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+
+	// :-
+	newWord, err = shlex.ProcessWord("${FOO:-xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+	newWord, err = shlex.ProcessWord("${BAR:-xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "xxx", newWord)
+	newWord, err = shlex.ProcessWord("${BAR:-${FOO}}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+
+	// -
+	newWord, err = shlex.ProcessWord("${FOO-xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+	newWord, err = shlex.ProcessWord("${BAR-xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "xxx", newWord)
+	newWord, err = shlex.ProcessWord("${EMPTY-xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "", newWord)
+
+	// :?
+	newWord, err = shlex.ProcessWord("${FOO:?xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+	newWord, err = shlex.ProcessWord("${BAR:?xxx}", setEnvs)
+	require.Error(t, err)
+	require.Equal(t, "", newWord)
+
+	// ?
+	newWord, err = shlex.ProcessWord("${FOO?xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "foo", newWord)
+	newWord, err = shlex.ProcessWord("${BAR?xxx}", setEnvs)
+	require.Error(t, err)
+	require.Equal(t, "", newWord)
+	newWord, err = shlex.ProcessWord("${EMPTY?xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "", newWord)
+
+	// :+
+	newWord, err = shlex.ProcessWord("${FOO:+xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "xxx", newWord)
+	newWord, err = shlex.ProcessWord("${BAR:+xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "", newWord)
+
+	// +
+	newWord, err = shlex.ProcessWord("${FOO+xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "xxx", newWord)
+	newWord, err = shlex.ProcessWord("${BAR+xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "", newWord)
+	newWord, err = shlex.ProcessWord("${EMPTY+xxx}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "xxx", newWord)
+}
+
+func TestShellParserStringLength(t *testing.T) {
+	shlex := NewLex('\\')
+	setEnvs := []string{"FOO=foo"}
+
+	var newWord string
+	var err error
+
+	newWord, err = shlex.ProcessWord("${#FOO}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "3", newWord)
+}
+
+func TestShellParserSubstringProcessing(t *testing.T) {
+	shlex := NewLex('\\')
+	setEnvs := []string{"FOO=x.y.z"}
+
+	var newWord string
+	var err error
+
+	newWord, err = shlex.ProcessWord("${FOO%.z}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "x.y", newWord)
+	newWord, err = shlex.ProcessWord("${FOO%%.z}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "x.y", newWord)
+
+	newWord, err = shlex.ProcessWord("${FOO%.*}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "x.y", newWord)
+	newWord, err = shlex.ProcessWord("${FOO%%.*}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "x", newWord)
+
+	newWord, err = shlex.ProcessWord("${FOO#x}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "y.z", newWord)
+	newWord, err = shlex.ProcessWord("${FOO##.x}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "y.z", newWord)
+
+	newWord, err = shlex.ProcessWord("${FOO#*.}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "y.z", newWord)
+	newWord, err = shlex.ProcessWord("${FOO##*.}", setEnvs)
+	require.NoError(t, err)
+	require.Equal(t, "z", newWord)
+}
