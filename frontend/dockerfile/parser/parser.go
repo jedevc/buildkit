@@ -339,26 +339,34 @@ func Parse(rwc io.Reader) (*Result, error) {
 			continue
 		}
 
+		quote, hasQuoted := findQuotes(line, d, nil)
+
 		var hasEmptyContinuationLine bool
-		for !isEndOfLine && scanner.Scan() {
+		for (!isEndOfLine || hasQuoted) && scanner.Scan() {
 			bytesRead, err := processLine(d, scanner.Bytes(), false)
 			if err != nil {
 				return nil, withLocation(err, currentLine, 0)
 			}
 			currentLine++
 
-			if isComment(scanner.Bytes()) {
-				// original line was a comment (processLine strips comments)
-				continue
-			}
-			if isEmptyContinuationLine(bytesRead) {
-				hasEmptyContinuationLine = true
-				continue
-			}
+			lineRead := string(bytesRead)
 
-			continuationLine := string(bytesRead)
-			continuationLine, isEndOfLine = trimContinuationCharacter(continuationLine, d)
-			line += continuationLine
+			quote, hasQuoted = findQuotes(lineRead, d, &quote)
+			if hasQuoted {
+				// FIXME: shouldn't remove newlines
+				line += lineRead
+			} else {
+				if isComment(scanner.Bytes()) {
+					// original line was a comment (processLine strips comments)
+					continue
+				}
+				if isEmptyContinuationLine(bytesRead) {
+					hasEmptyContinuationLine = true
+					continue
+				}
+				lineRead, isEndOfLine = trimContinuationCharacter(lineRead, d)
+				line += lineRead
+			}
 		}
 
 		if hasEmptyContinuationLine {
@@ -537,6 +545,37 @@ func trimContinuationCharacter(line string, d *directives) (string, bool) {
 		return line, false
 	}
 	return line, true
+}
+
+func findQuotes(line string, d *directives, start *rune) (rune, bool) {
+	var quote rune
+	if start == nil {
+		quote = '\x00'
+	} else {
+		quote = *start
+	}
+
+	escaped := false
+	for _, ch := range line {
+		switch {
+		case ch == quote: // end quote
+			if !escaped {
+				quote = '\x00'
+			}
+			escaped = false
+		case ch == '"' || ch == '\'': // start quote
+			if !escaped && quote == '\x00' {
+				quote = ch
+			}
+			escaped = false
+		case ch == d.escapeToken:
+			escaped = !escaped
+		default:
+			escaped = false
+		}
+	}
+
+	return quote, quote != '\x00'
 }
 
 // TODO: remove stripLeftWhitespace after deprecation period. It seems silly
