@@ -115,6 +115,7 @@ var allTests = integration.TestFuncs(
 	testUlimit,
 	testCgroupParent,
 	testNamedImageContext,
+	testNamedImageContextTimestamps,
 	testNamedLocalContext,
 	testNamedOCILayoutContext,
 	testNamedInputContext,
@@ -5336,6 +5337,112 @@ COPY --from=base /env_foobar /
 	dt, err = os.ReadFile(filepath.Join(destDir, "env_path"))
 	require.NoError(t, err)
 	require.Contains(t, string(dt), "/foobar:")
+}
+
+func testNamedImageContextTimestamps(t *testing.T, sb integration.Sandbox) {
+	cdAddress := sb.ContainerdAddress()
+	if cdAddress == "" {
+		t.Skip("test requires containerd worker")
+	}
+
+	ctx := sb.Context()
+
+	c, err := client.New(ctx, sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	registry, err := sb.NewRegistry()
+	if errors.Is(err, integration.ErrRequirements) {
+		t.Skip(err.Error())
+	}
+	require.NoError(t, err)
+
+	f := getFrontend(t, sb)
+
+	dockerfile := []byte(`
+FROM alpine
+RUN echo foo >> /test
+`)
+	dir, err := tmpdir(
+		fstest.CreateFile("Dockerfile", dockerfile, 0600),
+	)
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	target := registry + "/buildkit/testnamedimagecontexttimestamps:latest"
+	_, err = f.Solve(sb.Context(), c, client.SolveOpt{
+		LocalDirs: map[string]string{
+			builder.DefaultLocalNameDockerfile: dir,
+			builder.DefaultLocalNameContext:    dir,
+		},
+		Exports: []client.ExportEntry{
+			{
+				Type: client.ExporterImage,
+				Attrs: map[string]string{
+					"name": target,
+					"push": "true",
+				},
+			},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	dockerfileDerived := []byte(`
+FROM alpine
+RUN echo foo >> /test
+`)
+	dirDerived, err := tmpdir(
+		fstest.CreateFile("Dockerfile", dockerfileDerived, 0600),
+	)
+	require.NoError(t, err)
+	defer os.RemoveAll(dirDerived)
+
+	targetDerived := registry + "/buildkit/testnamedimagecontexttimestampsderived:latest"
+	_, err = f.Solve(sb.Context(), c, client.SolveOpt{
+		FrontendAttrs: map[string]string{
+			"context:alpine": "docker-image://" + target,
+		},
+		LocalDirs: map[string]string{
+			builder.DefaultLocalNameDockerfile: dirDerived,
+			builder.DefaultLocalNameContext:    dirDerived,
+		},
+		Exports: []client.ExportEntry{
+			{
+				Type: client.ExporterImage,
+				Attrs: map[string]string{
+					"name": targetDerived,
+					"push": "true",
+				},
+			},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	client, err := newContainerd(cdAddress)
+	require.NoError(t, err)
+	defer client.Close()
+
+	ctx2 := namespaces.WithNamespace(sb.Context(), "buildkit")
+
+	imgs := map[string]ocispecs.Image{}
+	for _, target := range []string{target, targetDerived} {
+		img, err := client.Pull(ctx2, target)
+		require.NoError(t, err)
+
+		desc, err := img.Config(ctx2)
+		require.NoError(t, err)
+
+		dt, err := content.ReadBlob(ctx2, img.ContentStore(), desc)
+		require.NoError(t, err)
+
+		var ociimg ocispecs.Image
+		err = json.Unmarshal(dt, &ociimg)
+		require.NoError(t, err)
+
+		imgs[target] = ociimg
+	}
+
+	require.NotEqual(t, imgs[target].Created, imgs[targetDerived].Created)
 }
 
 func testNamedLocalContext(t *testing.T, sb integration.Sandbox) {
