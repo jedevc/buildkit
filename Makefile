@@ -19,6 +19,9 @@ clean: FORCE
 test:
 	./hack/test integration gateway dockerfile
 
+fuzz:
+	./hack/fuzz 1h
+
 lint:
 	./hack/lint
 
@@ -42,5 +45,5 @@ vendor:
 generated-files:
 	./hack/update-generated-files
 
-.PHONY: vendor generated-files test binaries images install clean lint validate-all validate-vendor validate-generated-files
+.PHONY: vendor generated-files test fuzz binaries images install clean lint validate-all validate-vendor validate-generated-files
 FORCE:

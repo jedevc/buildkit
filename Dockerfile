@@ -257,6 +257,8 @@ FROM integration-tests-base AS integration-tests
 COPY . .
 ENV BUILDKIT_RUN_NETWORK_INTEGRATION_TESTS=1 BUILDKIT_CNI_INIT_LOCK_PATH=/run/buildkit_cni_bridge.lock
 
+FROM integration-tests AS fuzz-tests
+
 FROM integration-tests AS dev-env
 VOLUME /var/lib/buildkit
 

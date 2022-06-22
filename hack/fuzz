@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+. $(dirname $0)/util
+set -eu -o pipefail
+
+iid="buildkit-fuzz"
+iidfile=$(mktemp -t docker-iidfile.XXXXXXXXXX)
+
+fuzztime=${1:?need fuzz time}
+
+buildxCmd build $cacheFromFlags \
+  --target "fuzz-tests" \
+  --output "type=docker,name=$iid" \
+  $currentcontext
+
+cacheVolume="buildkit-fuzz-cache"
+if ! docker container inspect "$cacheVolume" >/dev/null 2>/dev/null; then
+  docker create -v /root/.cache -v /root/.cache/registry -v /go/pkg/mod --name "$cacheVolume" alpine
+fi
+
+buildtags=$(cat ./frontend/dockerfile/release/labs/tags)
+
+files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
+for file in ${files}
+do
+  dir=$(dirname $file)
+	funcs=$(grep -oP 'func \K(Fuzz\w*)' $file)
+
+	for func in ${funcs}
+	do
+    cid=$(docker create --rm --volumes-from=$cacheVolume --privileged $iid go test $dir -v -tags "$buildtags" -run=$func -fuzz=$func -fuzztime=${fuzztime})
+    docker start -a $cid
+	done
+done
+
+if [ "$TEST_KEEP_CACHE" != "1" ]; then
+  docker rm -v $cacheVolume
+fi

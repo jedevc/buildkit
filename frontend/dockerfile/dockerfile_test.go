@@ -30,6 +30,8 @@ import (
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/dockerfile/builder"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/subrequests"
 	"github.com/moby/buildkit/identity"
@@ -200,6 +202,45 @@ func TestIntegration(t *testing.T) {
 			"denied":  networkHostDenied,
 		}))...)
 	integration.Run(t, heredocTests, opts...)
+}
+
+func FuzzParser(f *testing.F) {
+	testcases := []string{
+		``,
+		`
+FROM alpine
+`,
+		`
+FROM ubuntu
+ADD v /w
+ARG e=1
+COPY x /y
+CMD ["test", "cmd"]
+ENTRYPOINT ["entrypoint"]
+ENV a=b
+EXPOSE 8000
+HEALTHCHECK RUN echo test
+LABEL s=t
+ONBUILD RUN echo test
+RUN echo foo >> bar
+SHELL ["/bin/sh", "-e"]
+USER root
+WORKDIR /usr/src/app
+`,
+	}
+	for _, tc := range testcases {
+		f.Add(tc)
+	}
+	f.Fuzz(func(t *testing.T, orig string) {
+		result, err := parser.Parse(strings.NewReader(orig))
+		if err != nil {
+			return
+		}
+		_, _, err = instructions.Parse(result.AST)
+		if err != nil {
+			return
+		}
+	})
 }
 
 func testDefaultEnvWithArgs(t *testing.T, sb integration.Sandbox) {
