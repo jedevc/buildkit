@@ -362,8 +362,14 @@ func (lbf *llbBridgeForwarder) Discard() {
 				continue
 			}
 		}
+
 		r.Release(context.TODO())
 		delete(lbf.refs, id)
+
+		for _, r := range lbf.rrefs[id] {
+			r.Release(context.TODO())
+		}
+		delete(lbf.rrefs, id)
 	}
 }
 
@@ -413,6 +419,7 @@ func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 		callCtx:       ctx,
 		llbBridge:     llbBridge,
 		refs:          map[string]solver.ResultProxy{},
+		rrefs:         map[string][]solver.ResultProxy{},
 		workerRefByID: map[string]*worker.WorkerRef{},
 		doneCh:        make(chan struct{}),
 		pipe:          newPipe(),
@@ -510,6 +517,7 @@ type llbBridgeForwarder struct {
 	callCtx       context.Context
 	llbBridge     frontend.FrontendLLBBridge
 	refs          map[string]solver.ResultProxy
+	rrefs         map[string][]solver.ResultProxy
 	workerRefByID map[string]*worker.WorkerRef
 	// lastRef      solver.CachedResult
 	// lastRefs     map[string]solver.CachedResult
@@ -864,7 +872,7 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 
 	switch res := in.Result.Result.(type) {
 	case *pb.Result_RefDeprecated:
-		ref, err := lbf.convertRef(res.RefDeprecated)
+		ref, err := lbf.convertRefShared(res.RefDeprecated)
 		if err != nil {
 			return nil, err
 		}
@@ -872,7 +880,7 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 	case *pb.Result_RefsDeprecated:
 		m := map[string]solver.ResultProxy{}
 		for k, id := range res.RefsDeprecated.Refs {
-			ref, err := lbf.convertRef(id)
+			ref, err := lbf.convertRefShared(id)
 			if err != nil {
 				return nil, err
 			}
@@ -880,7 +888,7 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 		}
 		r.Refs = m
 	case *pb.Result_Ref:
-		ref, err := lbf.convertRef(res.Ref.Id)
+		ref, err := lbf.convertRefShared(res.Ref.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -888,7 +896,7 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 	case *pb.Result_Refs:
 		m := map[string]solver.ResultProxy{}
 		for k, ref := range res.Refs.Refs {
-			ref, err := lbf.convertRef(ref.Id)
+			ref, err := lbf.convertRefShared(ref.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -1383,7 +1391,28 @@ func (lbf *llbBridgeForwarder) convertRef(id string) (solver.ResultProxy, error)
 	if !ok {
 		return nil, errors.Errorf("return reference %s not found", id)
 	}
+	return r, nil
+}
 
+func (lbf *llbBridgeForwarder) convertRefShared(id string) (solver.ResultProxy, error) {
+	if id == "" {
+		return nil, nil
+	}
+
+	lbf.mu.Lock()
+	defer lbf.mu.Unlock()
+
+	r, ok := lbf.refs[id]
+	if !ok {
+		return nil, errors.Errorf("return reference %s not found", id)
+	}
+
+	if _, ok := lbf.rrefs[id]; ok {
+		r2 := r.Clone()
+		lbf.rrefs[id] = append(lbf.rrefs[id], r2)
+		return r2, nil
+	}
+	lbf.rrefs[id] = nil
 	return r, nil
 }
 

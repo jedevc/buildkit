@@ -195,7 +195,7 @@ func (c *bridgeClient) toFrontendResult(r *client.Result) (*frontend.Result, err
 				return nil, errors.Errorf("invalid reference type for forward %T", r)
 			}
 			c.final[rr] = struct{}{}
-			res.Refs[k] = rr.ResultProxy
+			res.Refs[k] = rr.resultProxy()
 		}
 	}
 	if r := r.Ref; r != nil {
@@ -204,7 +204,7 @@ func (c *bridgeClient) toFrontendResult(r *client.Result) (*frontend.Result, err
 			return nil, errors.Errorf("invalid reference type for forward %T", r)
 		}
 		c.final[rr] = struct{}{}
-		res.Ref = rr.ResultProxy
+		res.Ref = rr.resultProxy()
 	}
 	res.Metadata = r.Metadata
 
@@ -219,7 +219,7 @@ func (c *bridgeClient) discard(err error) {
 	for _, r := range c.refs {
 		if r != nil {
 			if _, ok := c.final[r]; !ok || err != nil {
-				r.Release(context.TODO())
+				r.release(context.TODO())
 			}
 		}
 	}
@@ -248,7 +248,7 @@ func (c *bridgeClient) NewContainer(ctx context.Context, req client.NewContainer
 					return errors.Errorf("unexpected Ref type: %T", m.Ref)
 				}
 
-				res, err := refProxy.Result(ctx)
+				res, err := refProxy.main.Result(ctx)
 				if err != nil {
 					return err
 				}
@@ -304,17 +304,45 @@ func (c *bridgeClient) NewContainer(ctx context.Context, req client.NewContainer
 }
 
 type ref struct {
-	solver.ResultProxy
+	main      solver.ResultProxy
+	cloneable bool
+	clones    []solver.ResultProxy
+
 	session session.Group
 	c       *bridgeClient
 }
 
 func (c *bridgeClient) newRef(r solver.ResultProxy, s session.Group) (*ref, error) {
-	return &ref{ResultProxy: r, session: s, c: c}, nil
+	return &ref{main: r, session: s, c: c}, nil
+}
+
+func (r *ref) resultProxy() solver.ResultProxy {
+	if r.cloneable {
+		clone := r.main.Clone()
+		r.clones = append(r.clones, clone)
+		return clone
+	}
+	r.cloneable = true
+	return r.main
+}
+
+func (r *ref) release(ctx context.Context) error {
+	var err error
+	if e := r.main.Release(ctx); e != nil && err == nil {
+		err = e
+	}
+	for _, clone := range r.clones {
+		if e := clone.Release(ctx); e != nil && err == nil {
+			err = e
+		}
+	}
+	r.cloneable = false
+
+	return err
 }
 
 func (r *ref) ToState() (st llb.State, err error) {
-	defop, err := llb.NewDefinitionOp(r.Definition())
+	defop, err := llb.NewDefinitionOp(r.main.Definition())
 	if err != nil {
 		return st, err
 	}
@@ -359,7 +387,7 @@ func (r *ref) StatFile(ctx context.Context, req client.StatRequest) (*fstypes.St
 }
 
 func (r *ref) getMountable(ctx context.Context) (snapshot.Mountable, error) {
-	rr, err := r.ResultProxy.Result(ctx)
+	rr, err := r.main.Result(ctx)
 	if err != nil {
 		return nil, r.c.wrapSolveError(err)
 	}

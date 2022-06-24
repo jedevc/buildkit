@@ -188,8 +188,8 @@ func (b *llbBridge) Solve(ctx context.Context, req frontend.SolveRequest, sid st
 }
 
 type resultProxy struct {
-	cb         func(context.Context) (solver.CachedResult, solver.BuildSources, error)
-	def        *pb.Definition
+	b          *llbBridge
+	req        frontend.SolveRequest
 	g          flightcontrol.Group
 	mu         sync.Mutex
 	released   bool
@@ -201,26 +201,34 @@ type resultProxy struct {
 
 func newResultProxy(b *llbBridge, req frontend.SolveRequest) *resultProxy {
 	rp := &resultProxy{
-		def: req.Definition,
-	}
-	rp.cb = func(ctx context.Context) (solver.CachedResult, solver.BuildSources, error) {
-		res, bsrc, err := b.loadResult(ctx, req.Definition, req.CacheImports)
-		var ee *llberrdefs.ExecError
-		if errors.As(err, &ee) {
-			ee.EachRef(func(res solver.Result) error {
-				rp.errResults = append(rp.errResults, res)
-				return nil
-			})
-			// acquire ownership so ExecError finalizer doesn't attempt to release as well
-			ee.OwnerBorrowed = true
-		}
-		return res, bsrc, err
+		req: req,
+		b:   b,
 	}
 	return rp
 }
 
+func (rp *resultProxy) Clone() solver.ResultProxy {
+	rp.mu.Lock()
+	defer rp.mu.Unlock()
+
+	rp2 := &resultProxy{
+		req:      rp.req,
+		b:        rp.b,
+		released: rp.released,
+		err:      rp.err,
+		bsrc:     rp.bsrc,
+	}
+	if rp.v != nil {
+		rp2.v = rp.v.Clone().(solver.CachedResult)
+	}
+	for _, errResult := range rp.errResults {
+		rp2.errResults = append(rp2.errResults, errResult.Clone())
+	}
+	return rp2
+}
+
 func (rp *resultProxy) Definition() *pb.Definition {
-	return rp.def
+	return rp.req.Definition
 }
 
 func (rp *resultProxy) BuildSources() solver.BuildSources {
@@ -255,12 +263,12 @@ func (rp *resultProxy) wrapError(err error) error {
 	}
 	var ve *errdefs.VertexError
 	if errors.As(err, &ve) {
-		if rp.def.Source != nil {
-			locs, ok := rp.def.Source.Locations[string(ve.Digest)]
+		if rp.req.Definition.Source != nil {
+			locs, ok := rp.req.Definition.Source.Locations[string(ve.Digest)]
 			if ok {
 				for _, loc := range locs.Locations {
 					err = errdefs.WithSource(err, errdefs.Source{
-						Info:   rp.def.Source.Infos[loc.SourceIndex],
+						Info:   rp.req.Definition.Source.Infos[loc.SourceIndex],
 						Ranges: loc.Ranges,
 					})
 				}
@@ -268,6 +276,20 @@ func (rp *resultProxy) wrapError(err error) error {
 		}
 	}
 	return err
+}
+
+func (rp *resultProxy) loadResult(ctx context.Context) (solver.CachedResult, solver.BuildSources, error) {
+	res, bsrc, err := rp.b.loadResult(ctx, rp.req.Definition, rp.req.CacheImports)
+	var ee *llberrdefs.ExecError
+	if errors.As(err, &ee) {
+		ee.EachRef(func(res solver.Result) error {
+			rp.errResults = append(rp.errResults, res)
+			return nil
+		})
+		// acquire ownership so ExecError finalizer doesn't attempt to release as well
+		ee.OwnerBorrowed = true
+	}
+	return res, bsrc, err
 }
 
 func (rp *resultProxy) Result(ctx context.Context) (res solver.CachedResult, err error) {
@@ -285,7 +307,7 @@ func (rp *resultProxy) Result(ctx context.Context) (res solver.CachedResult, err
 			return rp.v, rp.err
 		}
 		rp.mu.Unlock()
-		v, bsrc, err := rp.cb(ctx)
+		v, bsrc, err := rp.loadResult(ctx)
 		if err != nil {
 			select {
 			case <-ctx.Done():

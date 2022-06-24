@@ -73,6 +73,7 @@ type CachedResult interface {
 }
 
 type ResultProxy interface {
+	Clone() ResultProxy
 	Result(context.Context) (CachedResult, error)
 	Release(context.Context) error
 	Definition() *pb.Definition
