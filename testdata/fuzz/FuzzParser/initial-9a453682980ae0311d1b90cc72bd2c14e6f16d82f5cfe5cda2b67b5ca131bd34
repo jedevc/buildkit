@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nARG META_PATH=/tmp/meta\n\nFROM busybox\nARG META_PATH\nRUN --mount=type=cache,id=mycache,target=/tmp/meta touch /tmp/meta/foo\nRUN --mount=type=cache,id=mycache,target=$META_PATH [ -f /tmp/meta/foo ]\n")

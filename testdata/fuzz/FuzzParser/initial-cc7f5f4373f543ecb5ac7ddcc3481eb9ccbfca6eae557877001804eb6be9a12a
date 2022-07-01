@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM --platform=$BUILDPLATFORM busybox AS base\nARG TARGETARCH\nRUN echo -n $TARGETARCH> arch && cat /dev/urandom | head -c 100 | sha256sum > unique\nFROM scratch\nCOPY --from=base unique /\nCOPY --from=base arch /\n")

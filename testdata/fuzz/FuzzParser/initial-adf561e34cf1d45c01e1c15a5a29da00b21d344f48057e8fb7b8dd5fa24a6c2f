@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nARG a1=\"box\"\nARG a2=\"$a1-foo\"\nFROM busy$a1 AS build\nARG a2\nARG a3=\"bar-$a2\"\nRUN echo -n $a3 > /out\nFROM scratch\nCOPY --from=build /out .\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nfrom busybox AS build\ncopy cachebust /\nrun mkdir out && echo foo > out/foo\n\nfrom busybox as second\nRUN --mount=from=build,src=out,target=/out,rw touch /out/bar && cat /dev/urandom | head -c 100 | sha256sum > /unique\n\nfrom scratch\nCOPY --from=second /unique /unique\n")

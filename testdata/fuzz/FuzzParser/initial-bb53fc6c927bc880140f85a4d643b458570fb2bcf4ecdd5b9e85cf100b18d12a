@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nENV foo=bar\nCOPY foo /foo2\nFROM busybox\nLABEL lbl=val\nCOPY --from=base foo2 foo3\nWORKDIR /\nRUN echo bar > foo4\nRUN [\"ls\"]\n")

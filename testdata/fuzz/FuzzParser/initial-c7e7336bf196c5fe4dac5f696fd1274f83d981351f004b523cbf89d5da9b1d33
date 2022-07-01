@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nENV empty=\"\"\nCOPY testfile $empty\nRUN [ \"$(cat testfile)\" == \"contents0\" ]\n")

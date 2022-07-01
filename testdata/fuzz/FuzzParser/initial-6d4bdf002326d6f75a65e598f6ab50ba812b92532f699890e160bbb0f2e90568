@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS s0\nRUN cat /dev/urandom | head -c 100 | sha256sum | tee unique\nFROM busybox AS s1\nRUN cat /dev/urandom | head -c 100 | sha256sum | tee unique2\nFROM scratch\nCOPY --from=s0 unique /\nCOPY --from=s1 unique2 /\n")

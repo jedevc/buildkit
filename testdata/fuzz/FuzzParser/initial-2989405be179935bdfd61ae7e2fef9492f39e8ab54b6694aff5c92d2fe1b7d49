@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch AS stage-linux\nCOPY foo forlinux\n\nFROM scratch AS stage-darwin\nCOPY bar fordarwin\n\nFROM stage-$TARGETOS\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\n\tFROM scratch\n\tFNTRYPOINT [\"/bin/sh\", \"-c\", \"echo invalidinstruction\"]\n")

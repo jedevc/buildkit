@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN cat /etc/hosts | grep foo\nRUN echo $HOSTNAME | grep foo\nRUN echo $(hostname) | grep foo\n")

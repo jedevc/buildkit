@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM alpine as base\nRUN echo aa > /foo\nWORKDIR /bar\n\nFROM base as base1\nCOPY hello.txt .\n\nFROM base as base2\nCOPY --from=base1 /bar/hello.txt .\nRUN true\n\nFROM scratch\nCOPY --from=base2 /foo /f\n")

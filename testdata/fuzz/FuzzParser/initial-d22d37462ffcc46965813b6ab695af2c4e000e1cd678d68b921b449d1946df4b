@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM alpine AS base\nRUN cat /proc/self/cgroup > /out\nFROM scratch\nCOPY --from=base /out /\n")

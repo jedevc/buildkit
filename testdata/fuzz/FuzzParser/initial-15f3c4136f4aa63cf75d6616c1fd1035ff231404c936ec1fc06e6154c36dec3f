@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch\nADD t.tar /\nCOPY foo /symlink/\n")

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -eu
+
+INDIR=$(realpath "${1:-$PWD}")
+OUTDIR="./testdata/fuzz/FuzzParser"
+mkdir -p "$OUTDIR"
+
+extract_testdata () {
+	while read -r item; do
+		HASH=$(echo "$item" | shasum -a 256 | awk "{print \$1}")
+		FILENAME="$OUTDIR/initial-$HASH"
+		cat <<-EOF > "$FILENAME"
+			go test fuzz v1
+			string($item)
+		EOF
+	done
+}
+
+RULE=$(mktemp)
+cat <<"EOF" > $RULE
+rules:
+- id: extract-test-dockerfiles
+  message: "Extracted dockerfile"
+  severity: INFO
+  languages:
+    - go
+  pattern-either:
+    - pattern: |
+        $DOCKERFILE := []byte(($DATA: string))
+        fstest.CreateFile("Dockerfile", $DOCKERFILE, ...)
+    - pattern: |
+        $DOCKERFILE := ($DATA: string)
+        fstest.CreateFile("Dockerfile", []byte($DOCKERFILE), ...)
+EOF
+
+cat <<"EOF" > .semgrepignore
+/vendor/
+EOF
+
+docker run --rm -v "${RULE}:/rule.yaml" -v "${INDIR}:/src" returntocorp/semgrep semgrep scan --config=/rule.yaml --json \
+	| jq '.results[].extra.metavars["$DATA"].abstract_content' \
+	| extract_testdata
+
+rm "$RULE" .semgrepignore

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM base AS build\nRUN echo \"foo is $FOO\" > /foo\nFROM busybox\nCOPY --from=build /foo /out /\n")

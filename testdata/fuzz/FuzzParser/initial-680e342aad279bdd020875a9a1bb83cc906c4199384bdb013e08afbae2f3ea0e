@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox as stage1\n\nENV MNT_ID=mycache\nENV MNT_TYPE2=cache\nRUN --mount=type=cache,id=mycache,target=/abcabc touch /abcabc/foo\nRUN --mount=type=$MNT_TYPE2,id=$MNT_ID,target=/cbacba [ -f /cbacba/foo ]\n\nFROM stage1\nRUN --mount=type=$MNT_TYPE2,id=$MNT_ID,target=/whatever [ -f /whatever/foo ]\n")

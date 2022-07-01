@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nARG group\nENV owner 1000\nADD --chown=${owner}:${group} foo /\nRUN [ \"$(stat -c \"%u %G\" /foo)\" == \"1000 nobody\" ]\n")

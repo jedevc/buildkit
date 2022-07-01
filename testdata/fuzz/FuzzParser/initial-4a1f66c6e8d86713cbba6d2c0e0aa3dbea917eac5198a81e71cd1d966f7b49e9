@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN [ \"$(cat /proc/self/status | grep CapBnd)\" == \"CapBnd:\t00000000a80425fb\" ]\n")

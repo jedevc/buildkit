@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch AS base\nENV FOO bar\nCOPY $FOO baz\n")

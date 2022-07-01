@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\n\tFROM busybox:latest\n\tRUN sh -c \"echo -n first > out\"\n\tRUN sh -c \"echo -n second > out2\"\n\tENV foo=bar\n\t")

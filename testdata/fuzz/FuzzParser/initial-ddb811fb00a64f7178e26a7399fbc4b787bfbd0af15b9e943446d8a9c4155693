@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM alpine\nCOPY file* /files/\nRUN ls /files/file1\n")

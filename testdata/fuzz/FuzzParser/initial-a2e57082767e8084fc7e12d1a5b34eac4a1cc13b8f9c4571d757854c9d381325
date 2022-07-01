@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nRUN cat /etc/alpine-release > /out\nFROM scratch\nCOPY --from=base /out /\n")

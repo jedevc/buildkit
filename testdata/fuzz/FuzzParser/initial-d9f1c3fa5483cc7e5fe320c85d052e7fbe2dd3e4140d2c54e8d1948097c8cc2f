@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox:latest\nARG foo\nRUN echo $foo\nADD https://raw.githubusercontent.com/moby/moby/master/README.md /\n")

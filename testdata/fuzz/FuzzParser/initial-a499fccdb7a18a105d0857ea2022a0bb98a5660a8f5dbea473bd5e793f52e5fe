@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM --platform=$BUILDPLATFORM busybox AS build\nARG TARGETPLATFORM\nARG TARGETOS\nRUN mkdir /out && echo -n $TARGETPLATFORM > /out/platform && echo -n $TARGETOS > /out/os\nFROM scratch\nCOPY --from=build out .\n")

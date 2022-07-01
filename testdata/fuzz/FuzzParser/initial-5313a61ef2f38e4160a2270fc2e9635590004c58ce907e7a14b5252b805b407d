@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox as test\nRUN touch /tmp/test\n\nFROM busybox\nENV ttt=test\nRUN --mount=from=$ttt,type=cache,target=/tmp ls\n")

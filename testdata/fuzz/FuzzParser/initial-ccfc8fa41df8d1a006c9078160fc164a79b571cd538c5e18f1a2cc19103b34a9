@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN --mount=type=cache,target=/mycache touch /mycache/foo\nRUN --mount=type=cache,target=/mycache2 [ ! -f /mycache2/foo ]\nRUN --mount=type=cache,target=/mycache [ -f /mycache/foo ]\n")

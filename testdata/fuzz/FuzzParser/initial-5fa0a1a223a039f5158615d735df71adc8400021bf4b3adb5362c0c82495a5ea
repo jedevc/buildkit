@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN ip link show eth0\n")

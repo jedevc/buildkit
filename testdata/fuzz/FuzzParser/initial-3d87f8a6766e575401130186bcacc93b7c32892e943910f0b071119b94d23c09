@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch AS STAge0\nCOPY foo bar\nFROM scratch AS staGE1\nCOPY --from=staGE0 bar baz\nFROM scratch\nCOPY --from=stage1 baz bax\n")

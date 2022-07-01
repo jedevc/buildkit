@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN --mount=type=secret,required=false,mode=741,uid=100,gid=102,target=/mysecret [ \"$(stat -c \"%u %g %f\" /mysecret)\" = \"100 102 81e1\" ]\nRUN [ ! -f /mysecret ] # check no stub left behind\n")

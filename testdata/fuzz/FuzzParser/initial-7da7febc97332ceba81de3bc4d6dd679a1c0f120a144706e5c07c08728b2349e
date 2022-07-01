@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nRUN --mount=type=tmpfs,target=/dev/shm,size=128m mount | grep /dev/shm > /tmpfssize\nFROM scratch\nCOPY --from=base /tmpfssize /\n")

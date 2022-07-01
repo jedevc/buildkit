@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS build\nRUN mkdir -p /out/sub && ln -s /out/sub /sub && ln -s out/sub /sub2 && echo -n \"data\" > /sub/foo\nFROM scratch\nCOPY --from=build /sub/foo .\nCOPY --from=build /sub2/foo bar\n")

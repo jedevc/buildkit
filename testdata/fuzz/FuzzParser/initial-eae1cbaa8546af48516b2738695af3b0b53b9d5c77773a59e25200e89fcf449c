@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN --security=insecure [ \"$(printf '%x' $(( $(cat /proc/self/status | grep CapBnd | cut -f 2 | sed s#^#0x#) & 0x3fffffffff)))\" == \"3fffffffff\" ]\nRUN [ \"$(cat /proc/self/status | grep CapBnd)\" == \"CapBnd:\t00000000a80425fb\" ]\n")

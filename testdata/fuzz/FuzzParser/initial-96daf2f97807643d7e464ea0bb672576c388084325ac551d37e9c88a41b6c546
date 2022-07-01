@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM --platform=$BUILDPLATFORM alpine\nARG TARGETARCH\nENV FOO=bar-$TARGETARCH\nRUN echo \"foo $TARGETARCH\" > /out\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch AS base\nWORKDIR /foo\nCOPY Dockerfile / \nFROM scratch\n# relative path still loaded as absolute\nCOPY --from=base Dockerfile .\n")

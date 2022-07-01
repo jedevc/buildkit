@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nRUN ulimit -n > /ulimit\nFROM scratch\nCOPY --from=base /ulimit /\n")

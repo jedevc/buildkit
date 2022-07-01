@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS build\nENV myenv foo%sbar\nRUN [ \"$myenv\" = 'foo%sbar' ]\n")

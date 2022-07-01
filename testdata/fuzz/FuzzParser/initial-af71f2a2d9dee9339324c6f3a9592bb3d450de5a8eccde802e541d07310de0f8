@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch\nRUN --mont=target=/mytmp,type=tmpfs /bin/true\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\n\tFROM busybox\n\tRUN invalidcmd\n")

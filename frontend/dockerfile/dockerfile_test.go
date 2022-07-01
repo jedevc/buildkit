@@ -205,32 +205,7 @@ func TestIntegration(t *testing.T) {
 }
 
 func FuzzParser(f *testing.F) {
-	testcases := []string{
-		``,
-		`
-FROM alpine
-`,
-		`
-FROM ubuntu
-ADD v /w
-ARG e=1
-COPY x /y
-CMD ["test", "cmd"]
-ENTRYPOINT ["entrypoint"]
-ENV a=b
-EXPOSE 8000
-HEALTHCHECK RUN echo test
-LABEL s=t
-ONBUILD RUN echo test
-RUN echo foo >> bar
-SHELL ["/bin/sh", "-e"]
-USER root
-WORKDIR /usr/src/app
-`,
-	}
-	for _, tc := range testcases {
-		f.Add(tc)
-	}
+	f.Add("")
 	f.Fuzz(func(t *testing.T, orig string) {
 		result, err := parser.Parse(strings.NewReader(orig))
 		if err != nil {

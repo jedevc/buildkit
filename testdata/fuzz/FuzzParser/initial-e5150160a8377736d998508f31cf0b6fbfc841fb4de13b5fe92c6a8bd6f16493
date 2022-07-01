@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch AS base\nCOPY sub sub\nCOPY sub sub\nCOPY files/foo.go dest/foo.go\nCOPY files/foo.go dest/foo.go\nCOPY files dest\n")

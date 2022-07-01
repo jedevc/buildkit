@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN adduser -D user\nUSER user\nWORKDIR /mydir\nRUN [ \"$(stat -c \"%U %G\" /mydir)\" == \"user user\" ]\n")

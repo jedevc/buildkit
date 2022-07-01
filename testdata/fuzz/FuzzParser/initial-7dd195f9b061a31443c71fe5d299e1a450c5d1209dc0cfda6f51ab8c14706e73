@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox:latest\nARG foo\nRUN echo $foo\n")

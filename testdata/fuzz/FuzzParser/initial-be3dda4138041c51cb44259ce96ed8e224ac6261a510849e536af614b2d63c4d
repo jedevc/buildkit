@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nRUN mount | grep /dev/shm > /shmsize\nFROM scratch\nCOPY --from=base /shmsize /\n")

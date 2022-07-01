@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\nENV owner 1000\nRUN mkdir -m 0777 /out\nCOPY --chown=daemon foo /\nCOPY --chown=1000:nobody bar /baz\nARG group\nCOPY --chown=${owner}:${group} foo /foobis\nRUN stat -c \"%U %G\" /foo  > /out/fooowner\nRUN stat -c \"%u %G\" /baz/sub  > /out/subowner\nRUN stat -c \"%u %G\" /foobis  > /out/foobisowner\nFROM scratch\nCOPY --from=base /out /\n")

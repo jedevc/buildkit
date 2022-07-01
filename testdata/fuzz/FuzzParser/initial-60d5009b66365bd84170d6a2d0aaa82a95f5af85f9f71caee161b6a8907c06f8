@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN --mount=type=cache,target=/mycache,uid=1001,gid=1002,mode=0751 [ \"$(stat -c \"%u %g %f\" /mycache)\" == \"1001 1002 41e9\" ]\n")

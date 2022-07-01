@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch\nARG TARGETARCH\nARG TARGETPLATFORM\nLABEL target=$TARGETPLATFORM\nCOPY arch-$TARGETARCH whoami\n")

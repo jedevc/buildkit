@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\n\tFROM busybox\n\tCOPY foo /foo2\n\tCOPY foo /\n\tRUN echo -n bar > foo3\n\tRUN test -f foo\n\tRUN cmp -s foo foo2\n\tRUN cmp -s foo foo3\n")

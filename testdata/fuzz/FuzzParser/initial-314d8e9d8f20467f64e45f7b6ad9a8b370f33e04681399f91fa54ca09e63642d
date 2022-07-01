@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM scratch\nCOPY --from=busybox /etc/passwd test\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nARG group\nENV owner user01\nRUN adduser -D user\nRUN adduser -D user01\nCOPY --chown=user:user . /dest\nCOPY --chown=${owner}:${group} . /dest01\nRUN [ \"$(stat -c \"%U %G\" /dest)\" == \"user user\" ]\nRUN [ \"$(stat -c \"%U %G\" /dest01)\" == \"user01 user\" ]\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS build\nARG FOO\nARG BAR\nARG BAZ=bazcontent\nRUN echo -n $HTTP_PROXY::$NO_PROXY::$FOO::$BAR::$BAZ > /out\nFROM scratch\nCOPY --from=build /out /\n\n")

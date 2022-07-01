@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox\nRUN --mount=target=/context [ \"$(cat /context/testfile)\" == \"contents0\" ]\n")

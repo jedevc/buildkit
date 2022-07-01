@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nFROM busybox AS base\n\nRUN mkdir -m 0777 /out\nCOPY --chmod=0644 foo /\nCOPY --chmod=777 bar /baz\nCOPY --chmod=0 foo /foobis\n\nRUN stat -c \"%04a\" /foo  > /out/fooperm\nRUN stat -c \"%04a\" /baz  > /out/barperm\nRUN stat -c \"%04a\" /foobis  > /out/foobisperm\nFROM scratch\nCOPY --from=base /out /\n")
