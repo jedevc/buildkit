@@ -846,8 +846,8 @@ func contextByName(ctx context.Context, c client.Client, sessionID, name string,
 
 		named = reference.TagNameOnly(named)
 
-		_, data, err := c.ResolveImageConfig(ctx, named.String(), llb.ResolveImageConfigOpt{
-			Platform:     platform,
+		_, _, data, err := c.ResolveImageConfig(ctx, named.String(), llb.ResolveImageConfigOpt{
+			Type:         &llb.ResolveConfigType{Platform: platform},
 			ResolveMode:  resolveMode,
 			LogName:      fmt.Sprintf("[context %s] load metadata for %s", name, ref),
 			ResolverType: llb.ResolverTypeRegistry,
@@ -906,8 +906,8 @@ func contextByName(ctx context.Context, c client.Client, sessionID, name string,
 		// We do not support any image lookup for now, so any image will do; it is ignored.
 
 		usableRef := fmt.Sprintf("%s/%s@%s", storeID, "image", dig)
-		_, data, err := c.ResolveImageConfig(ctx, usableRef, llb.ResolveImageConfigOpt{
-			Platform:     platform,
+		_, _, data, err := c.ResolveImageConfig(ctx, usableRef, llb.ResolveImageConfigOpt{
+			Type:         &llb.ResolveConfigType{Platform: platform},
 			ResolveMode:  resolveMode,
 			LogName:      fmt.Sprintf("[context %s] load metadata for %s", name, ref),
 			ResolverType: llb.ResolverTypeOCILayout,

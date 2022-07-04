@@ -82,15 +82,29 @@ func (is *Source) ID() string {
 	return srctypes.DockerImageScheme
 }
 
-func (is *Source) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt, sm *session.Manager, g session.Group) (digest.Digest, []byte, error) {
+func (is *Source) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt, sm *session.Manager, g session.Group) (digest.Digest, digest.Digest, []byte, error) {
 	type t struct {
-		dgst digest.Digest
-		dt   []byte
+		mdgst digest.Digest
+		dgst  digest.Digest
+		dt    []byte
 	}
 	var typed *t
 	key := ref
-	if platform := opt.Platform; platform != nil {
-		key += platforms.Format(*platform)
+	switch t := opt.Type.(type) {
+	case *llb.ResolveConfigType:
+		key += "config"
+		if platform := t.Platform; platform != nil {
+			key += platforms.Format(*platform)
+		}
+	case *llb.ResolveManifestType:
+		key += "manifest"
+		if platform := t.Platform; platform != nil {
+			key += platforms.Format(*platform)
+		}
+	case *llb.ResolveIndexType:
+		key += "index"
+	default:
+		panic("oh no")
 	}
 	var (
 		rm    source.ResolveMode
@@ -102,7 +116,7 @@ func (is *Source) ResolveImageConfig(ctx context.Context, ref string, opt llb.Re
 	case ResolverTypeRegistry:
 		rm, err = source.ParseImageResolveMode(opt.ResolveMode)
 		if err != nil {
-			return "", nil, err
+			return "", "", nil, err
 		}
 		rslvr = resolver.DefaultPool.GetResolver(is.RegistryHosts, ref, "pull", sm, g).WithImageStore(is.ImageStore, rm)
 	case ResolverTypeOCILayout:
@@ -111,10 +125,10 @@ func (is *Source) ResolveImageConfig(ctx context.Context, ref string, opt llb.Re
 		// get the content store ID from the ref
 		parsed, err := reference.Parse(ref)
 		if err != nil {
-			return "", nil, errors.Errorf("invalid oci-layout ref format '%s', must be content-store/image@sha256:digest", ref)
+			return "", "", nil, errors.Errorf("invalid oci-layout ref format '%s', must be content-store/image@sha256:digest", ref)
 		}
 		if parsed.Digest() == "" {
-			return "", nil, errors.Errorf("oci-layout ref format '%s' missing digest, must be content-store/image@sha256:digest", ref)
+			return "", "", nil, errors.Errorf("oci-layout ref format '%s' missing digest, must be content-store/image@sha256:digest", ref)
 		}
 		storeID := parsed.Hostname()
 
@@ -122,17 +136,34 @@ func (is *Source) ResolveImageConfig(ctx context.Context, ref string, opt llb.Re
 	}
 	key += rm.String()
 	res, err := is.g.Do(ctx, key, func(ctx context.Context) (interface{}, error) {
-		dgst, dt, err := imageutil.Config(ctx, ref, rslvr, is.ContentStore, is.LeaseManager, opt.Platform)
-		if err != nil {
-			return nil, err
+		switch tp := opt.Type.(type) {
+		case *llb.ResolveConfigType:
+			mdgst, dgst, dt, err := imageutil.Config(ctx, ref, rslvr, is.ContentStore, is.LeaseManager, tp.Platform)
+			if err != nil {
+				return nil, err
+			}
+			return &t{mdgst: mdgst, dgst: dgst, dt: dt}, nil
+		case *llb.ResolveManifestType:
+			mdgst, dgst, dt, err := imageutil.Manifest(ctx, ref, rslvr, is.ContentStore, is.LeaseManager, tp.Platform)
+			if err != nil {
+				return nil, err
+			}
+			return &t{mdgst: mdgst, dgst: dgst, dt: dt}, nil
+		case *llb.ResolveIndexType:
+			mdgst, dgst, dt, err := imageutil.Index(ctx, ref, rslvr, is.ContentStore, is.LeaseManager)
+			if err != nil {
+				return nil, err
+			}
+			return &t{mdgst: mdgst, dgst: dgst, dt: dt}, nil
 		}
-		return &t{dgst: dgst, dt: dt}, nil
+
+		panic("oh no")
 	})
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
 	typed = res.(*t)
-	return typed.dgst, typed.dt, nil
+	return typed.mdgst, typed.dgst, typed.dt, nil
 }
 
 func (is *Source) Resolve(ctx context.Context, id source.Identifier, sm *session.Manager, vtx solver.Vertex) (source.SourceInstance, error) {

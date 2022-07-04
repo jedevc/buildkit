@@ -143,18 +143,18 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 			return nil, err
 		}
 
-		dgst, config, err := llbBridge.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), llb.ResolveImageConfigOpt{})
+		mdgst, _, config, err := llbBridge.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), llb.ResolveImageConfigOpt{})
 		if err != nil {
 			return nil, err
 		}
-		mfstDigest = dgst
+		mfstDigest = mdgst
 
 		if err := json.Unmarshal(config, &img); err != nil {
 			return nil, err
 		}
 
-		if dgst != "" {
-			sourceRef, err = reference.WithDigest(sourceRef, dgst)
+		if mdgst != "" {
+			sourceRef, err = reference.WithDigest(sourceRef, mdgst)
 			if err != nil {
 				return nil, err
 			}
@@ -529,28 +529,70 @@ type llbBridgeForwarder struct {
 
 func (lbf *llbBridgeForwarder) ResolveImageConfig(ctx context.Context, req *pb.ResolveImageConfigRequest) (*pb.ResolveImageConfigResponse, error) {
 	ctx = tracing.ContextWithSpanFromContext(ctx, lbf.callCtx)
-	var platform *ocispecs.Platform
-	if p := req.Platform; p != nil {
-		platform = &ocispecs.Platform{
-			OS:           p.OS,
-			Architecture: p.Architecture,
-			Variant:      p.Variant,
-			OSVersion:    p.OSVersion,
-			OSFeatures:   p.OSFeatures,
-		}
-	}
-	dgst, dt, err := lbf.llbBridge.ResolveImageConfig(ctx, req.Ref, llb.ResolveImageConfigOpt{
-		Platform:     platform,
+
+	r := llb.ResolveImageConfigOpt{
 		ResolveMode:  req.ResolveMode,
 		LogName:      req.LogName,
 		ResolverType: llb.ResolverType(req.ResolverType),
-	})
+	}
+
+	fmt.Printf("%T\n", req.Type)
+	switch t := req.Type.(type) {
+	case nil:
+	case *pb.ResolveImageConfigRequest_Config:
+		ct := &llb.ResolveConfigType{}
+		if p := t.Config.Platform; p != nil {
+			ct.Platform = &ocispecs.Platform{
+				OS:           p.OS,
+				Architecture: p.Architecture,
+				Variant:      p.Variant,
+				OSVersion:    p.OSVersion,
+				OSFeatures:   p.OSFeatures,
+			}
+		}
+		r.Type = ct
+	case *pb.ResolveImageConfigRequest_Manifest:
+		mt := &llb.ResolveManifestType{}
+		if p := t.Manifest.Platform; p != nil {
+			mt.Platform = &ocispecs.Platform{
+				OS:           p.OS,
+				Architecture: p.Architecture,
+				Variant:      p.Variant,
+				OSVersion:    p.OSVersion,
+				OSFeatures:   p.OSFeatures,
+			}
+		}
+		r.Type = mt
+	case *pb.ResolveImageConfigRequest_Index:
+		r.Type = &llb.ResolveIndexType{}
+	default:
+		panic("uh oh")
+	}
+
+	if r.Type == nil {
+		if p := req.PlatformDeprecated; p != nil {
+			r.Type = &llb.ResolveConfigType{
+				Platform: &ocispecs.Platform{
+					OS:           p.OS,
+					Architecture: p.Architecture,
+					Variant:      p.Variant,
+					OSVersion:    p.OSVersion,
+					OSFeatures:   p.OSFeatures,
+				},
+			}
+		} else {
+			r.Type = &llb.ResolveConfigType{}
+		}
+	}
+
+	mdgst, dgst, dt, err := lbf.llbBridge.ResolveImageConfig(ctx, req.Ref, r)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.ResolveImageConfigResponse{
-		Digest: dgst,
-		Config: dt,
+		ManifestDigest: mdgst,
+		DataDigest:     dgst,
+		Data:           dt,
 	}, nil
 }
 

@@ -132,8 +132,8 @@ func Image(ref string, opts ...ImageOption) State {
 				if p == nil {
 					p = c.Platform
 				}
-				_, dt, err := info.metaResolver.ResolveImageConfig(ctx, ref, ResolveImageConfigOpt{
-					Platform:     p,
+				_, _, dt, err := info.metaResolver.ResolveImageConfig(ctx, ref, ResolveImageConfigOpt{
+					Type:         &ResolveConfigType{Platform: p},
 					ResolveMode:  info.resolveMode.String(),
 					ResolverType: ResolverTypeRegistry,
 				})
@@ -148,16 +148,16 @@ func Image(ref string, opts ...ImageOption) State {
 			if p == nil {
 				p = c.Platform
 			}
-			dgst, dt, err := info.metaResolver.ResolveImageConfig(context.TODO(), ref, ResolveImageConfigOpt{
-				Platform:     p,
+			mdgst, _, dt, err := info.metaResolver.ResolveImageConfig(context.TODO(), ref, ResolveImageConfigOpt{
+				Type:         &ResolveConfigType{Platform: p},
 				ResolveMode:  info.resolveMode.String(),
 				ResolverType: ResolverTypeRegistry,
 			})
 			if err != nil {
 				return State{}, err
 			}
-			if dgst != "" {
-				r, err = reference.WithDigest(r, dgst)
+			if mdgst != "" {
+				r, err = reference.WithDigest(r, mdgst)
 				if err != nil {
 					return State{}, err
 				}

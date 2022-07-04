@@ -331,8 +331,8 @@ func Dockerfile2LLB(ctx context.Context, dt []byte, opt ConvertOpt) (*llb.State,
 							prefix += platforms.Format(*platform) + " "
 						}
 						prefix += "internal]"
-						dgst, dt, err := metaResolver.ResolveImageConfig(ctx, d.stage.BaseName, llb.ResolveImageConfigOpt{
-							Platform:     platform,
+						mdgst, _, dt, err := metaResolver.ResolveImageConfig(ctx, d.stage.BaseName, llb.ResolveImageConfigOpt{
+							Type:         &llb.ResolveConfigType{Platform: platform},
 							ResolveMode:  opt.ImageResolveMode.String(),
 							LogName:      fmt.Sprintf("%s load metadata for %s", prefix, d.stage.BaseName),
 							ResolverType: llb.ResolverTypeRegistry,
@@ -350,8 +350,8 @@ func Dockerfile2LLB(ctx context.Context, dt []byte, opt ConvertOpt) (*llb.State,
 							p := autoDetectPlatform(img, *platform, platformOpt.buildPlatforms)
 							platform = &p
 						}
-						if dgst != "" {
-							ref, err = reference.WithDigest(ref, dgst)
+						if mdgst != "" {
+							ref, err = reference.WithDigest(ref, mdgst)
 							if err != nil {
 								return err
 							}
@@ -374,7 +374,7 @@ func Dockerfile2LLB(ctx context.Context, dt []byte, opt ConvertOpt) (*llb.State,
 								Type:  binfotypes.SourceTypeDockerImage,
 								Ref:   origName,
 								Alias: ref.String(),
-								Pin:   dgst.String(),
+								Pin:   mdgst.String(),
 							})
 						}
 						d.image = img

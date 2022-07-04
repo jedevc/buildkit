@@ -71,35 +71,69 @@ type imageMetaResolver struct {
 }
 
 type resolveResult struct {
-	config []byte
-	dgst   digest.Digest
+	data  []byte
+	mdgst digest.Digest
+	dgst  digest.Digest
 }
 
-func (imr *imageMetaResolver) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (digest.Digest, []byte, error) {
+func (imr *imageMetaResolver) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (digest.Digest, digest.Digest, []byte, error) {
 	imr.locker.Lock(ref)
 	defer imr.locker.Unlock(ref)
 
-	platform := opt.Platform
-	if platform == nil {
-		platform = imr.platform
+	switch t := opt.Type.(type) {
+	case *llb.ResolveConfigType:
+		platform := t.Platform
+		if platform == nil {
+			platform = imr.platform
+		}
+
+		k := imr.key("config", ref, platform)
+		if res, ok := imr.cache[k]; ok {
+			return res.mdgst, res.dgst, res.data, nil
+		}
+
+		mdgst, dgst, config, err := imageutil.Config(ctx, ref, imr.resolver, imr.buffer, nil, platform)
+		if err != nil {
+			return "", "", nil, err
+		}
+		imr.cache[k] = resolveResult{mdgst: mdgst, dgst: dgst, data: config}
+		return mdgst, dgst, config, nil
+	case *llb.ResolveManifestType:
+		platform := t.Platform
+		if platform == nil {
+			platform = imr.platform
+		}
+
+		k := imr.key("manifest", ref, platform)
+		if res, ok := imr.cache[k]; ok {
+			return res.mdgst, res.dgst, res.data, nil
+		}
+
+		mdgst, dgst, config, err := imageutil.Manifest(ctx, ref, imr.resolver, imr.buffer, nil, platform)
+		if err != nil {
+			return "", "", nil, err
+		}
+		imr.cache[k] = resolveResult{mdgst: mdgst, dgst: dgst, data: config}
+		return mdgst, dgst, config, nil
+	case *llb.ResolveIndexType:
+		k := imr.key("index", ref, nil)
+		if res, ok := imr.cache[k]; ok {
+			return res.mdgst, res.dgst, res.data, nil
+		}
+
+		mdgst, dgst, config, err := imageutil.Index(ctx, ref, imr.resolver, imr.buffer, nil)
+		if err != nil {
+			return "", "", nil, err
+		}
+		imr.cache[k] = resolveResult{mdgst: mdgst, dgst: dgst, data: config}
+		return mdgst, dgst, config, nil
 	}
 
-	k := imr.key(ref, platform)
-
-	if res, ok := imr.cache[k]; ok {
-		return res.dgst, res.config, nil
-	}
-
-	dgst, config, err := imageutil.Config(ctx, ref, imr.resolver, imr.buffer, nil, platform)
-	if err != nil {
-		return "", nil, err
-	}
-
-	imr.cache[k] = resolveResult{dgst: dgst, config: config}
-	return dgst, config, nil
+	panic("uh oh")
 }
 
-func (imr *imageMetaResolver) key(ref string, platform *ocispecs.Platform) string {
+func (imr *imageMetaResolver) key(tp string, ref string, platform *ocispecs.Platform) string {
+	ref = tp + ref
 	if platform != nil {
 		ref += platforms.Format(*platform)
 	}

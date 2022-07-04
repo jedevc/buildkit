@@ -74,7 +74,7 @@ type testResolver struct {
 	platform string
 }
 
-func (r *testResolver) ResolveImageConfig(ctx context.Context, ref string, opt ResolveImageConfigOpt) (digest.Digest, []byte, error) {
+func (r *testResolver) ResolveImageConfig(ctx context.Context, ref string, opt ResolveImageConfigOpt) (digest.Digest, digest.Digest, []byte, error) {
 	var img struct {
 		Config struct {
 			Env        []string `json:"Env,omitempty"`
@@ -86,13 +86,15 @@ func (r *testResolver) ResolveImageConfig(ctx context.Context, ref string, opt R
 
 	img.Config.WorkingDir = r.dir
 
-	if opt.Platform != nil {
-		r.platform = platforms.Format(*opt.Platform)
+	config := opt.Type.(*ResolveConfigType)
+
+	if config.Platform != nil {
+		r.platform = platforms.Format(*config.Platform)
 	}
 
 	dt, err := json.Marshal(img)
 	if err != nil {
-		return "", nil, errors.WithStack(err)
+		return "", "", nil, errors.WithStack(err)
 	}
-	return r.digest, dt, nil
+	return r.digest, "", dt, nil
 }

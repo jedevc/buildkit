@@ -316,25 +316,41 @@ func (rp *resultProxy) Result(ctx context.Context) (res solver.CachedResult, err
 	return nil, err
 }
 
-func (b *llbBridge) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (dgst digest.Digest, config []byte, err error) {
+func (b *llbBridge) ResolveImageConfig(ctx context.Context, ref string, opt llb.ResolveImageConfigOpt) (mdgst digest.Digest, dgst digest.Digest, config []byte, err error) {
 	w, err := b.resolveWorker()
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
 	if opt.LogName == "" {
 		opt.LogName = fmt.Sprintf("resolve image config for %s", ref)
 	}
 	id := ref // make a deterministic ID for avoiding duplicates
-	if platform := opt.Platform; platform == nil {
-		id += platforms.Format(platforms.DefaultSpec())
-	} else {
-		id += platforms.Format(*platform)
+	switch t := opt.Type.(type) {
+	case *llb.ResolveConfigType:
+		id += "config"
+		if platform := t.Platform; platform == nil {
+			id += platforms.Format(platforms.DefaultSpec())
+		} else {
+			id += platforms.Format(*platform)
+		}
+	case *llb.ResolveManifestType:
+		id += "manifest"
+		if platform := t.Platform; platform == nil {
+			id += platforms.Format(platforms.DefaultSpec())
+		} else {
+			id += platforms.Format(*platform)
+		}
+	case *llb.ResolveIndexType:
+		id += "index"
+	default:
+		panic("oh no")
 	}
+
 	err = inBuilderContext(ctx, b.builder, opt.LogName, id, func(ctx context.Context, g session.Group) error {
-		dgst, config, err = w.ResolveImageConfig(ctx, ref, opt, b.sm, g)
+		mdgst, dgst, config, err = w.ResolveImageConfig(ctx, ref, opt, b.sm, g)
 		return err
 	})
-	return dgst, config, err
+	return mdgst, dgst, config, err
 }
 
 type lazyCacheManager struct {
