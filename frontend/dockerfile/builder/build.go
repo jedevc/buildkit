@@ -369,13 +369,13 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	if _, ok := opts["cmdline"]; !ok {
 		if cmdline, ok := opts[keySyntaxArg]; ok {
 			p := strings.SplitN(strings.TrimSpace(cmdline), " ", 2)
-			res, err := forwardGateway(ctx, c, p[0], cmdline)
+			res, err := forwardGateway(ctx, c, p[0], cmdline, resolveMode)
 			if err != nil && len(errdefs.Sources(err)) == 0 {
 				return nil, errors.Wrapf(err, "failed with %s = %s", keySyntaxArg, cmdline)
 			}
 			return res, err
 		} else if ref, cmdline, loc, ok := dockerfile2llb.DetectSyntax(bytes.NewBuffer(dtDockerfile)); ok {
-			res, err := forwardGateway(ctx, c, ref, cmdline)
+			res, err := forwardGateway(ctx, c, ref, cmdline, resolveMode)
 			if err != nil && len(errdefs.Sources(err)) == 0 {
 				return nil, wrapSource(err, sourceMap, loc)
 			}
@@ -556,13 +556,35 @@ func Build(ctx context.Context, c client.Client) (*client.Result, error) {
 	return res, nil
 }
 
-func forwardGateway(ctx context.Context, c client.Client, ref string, cmdline string) (*client.Result, error) {
+func forwardGateway(ctx context.Context, c client.Client, ref string, cmdline string, resolveMode llb.ResolveMode) (*client.Result, error) {
 	opts := c.BuildOpts().Opts
 	if opts == nil {
 		opts = map[string]string{}
 	}
 	opts["cmdline"] = cmdline
 	opts["source"] = ref
+
+	st, img, _, err := contextByName(ctx, c, c.BuildOpts().SessionID, ref, nil, resolveMode.String())
+	if err != nil {
+		return nil, err
+	}
+	if st != nil {
+		def, err := st.Marshal(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defData, err := def.ToPB().Marshal()
+		if err != nil {
+			return nil, err
+		}
+
+		imgData, err := json.Marshal(img)
+		if err != nil {
+			return nil, err
+		}
+
+		opts["source"] = fmt.Sprintf("raw:%x,%x", defData, imgData)
+	}
 
 	gwcaps := c.BuildOpts().Caps
 	var frontendInputs map[string]*pb.Definition

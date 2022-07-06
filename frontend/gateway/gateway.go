@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -138,29 +139,57 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 			}
 		}
 	} else {
-		sourceRef, err := reference.ParseNormalizedNamed(source)
-		if err != nil {
-			return nil, err
-		}
+		var src llb.State
+		if raw := strings.TrimPrefix(source, "raw:"); len(raw) != len(source) {
+			datas := strings.SplitN(raw, ",", 2)
 
-		dgst, config, err := llbBridge.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), llb.ResolveImageConfigOpt{})
-		if err != nil {
-			return nil, err
-		}
-		mfstDigest = dgst
+			defData, err := hex.DecodeString(datas[0])
+			if err != nil {
+				panic(err)
+			}
+			var def opspb.Definition
+			if err := def.Unmarshal(defData); err != nil {
+				panic(err)
+			}
 
-		if err := json.Unmarshal(config, &img); err != nil {
-			return nil, err
-		}
+			imgData, err := hex.DecodeString(datas[1])
+			if err != nil {
+				panic(err)
+			}
+			if err := json.Unmarshal(imgData, &img); err != nil {
+				panic(err)
+			}
 
-		if dgst != "" {
-			sourceRef, err = reference.WithDigest(sourceRef, dgst)
+			op, err := llb.NewDefinitionOp(&def)
 			if err != nil {
 				return nil, err
 			}
-		}
+			src = llb.NewState(op)
+		} else {
+			sourceRef, err := reference.ParseNormalizedNamed(source)
+			if err != nil {
+				return nil, err
+			}
 
-		src := llb.Image(sourceRef.String(), &markTypeFrontend{})
+			dgst, config, err := llbBridge.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), llb.ResolveImageConfigOpt{})
+			if err != nil {
+				return nil, err
+			}
+			mfstDigest = dgst
+
+			if err := json.Unmarshal(config, &img); err != nil {
+				return nil, err
+			}
+
+			if dgst != "" {
+				sourceRef, err = reference.WithDigest(sourceRef, dgst)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			src = llb.Image(sourceRef.String(), &markTypeFrontend{})
+		}
 
 		def, err := src.Marshal(ctx)
 		if err != nil {
