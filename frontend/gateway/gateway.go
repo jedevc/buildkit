@@ -37,6 +37,7 @@ import (
 	"github.com/moby/buildkit/solver/errdefs"
 	llberrdefs "github.com/moby/buildkit/solver/llbsolver/errdefs"
 	opspb "github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/buildkit/util/bklog"
 	"github.com/moby/buildkit/util/buildinfo"
@@ -702,23 +703,24 @@ func (lbf *llbBridgeForwarder) Solve(ctx context.Context, req *pb.SolveRequest) 
 		attestations := map[string]*pb.Attestations{}
 		for k, atts := range res.Attestations {
 			for _, att := range atts {
-				switch att := att.(type) {
-				case *frontend.InTotoAttestation:
-					ref := att.PredicateRef
+				a, err := result.ConvertAttestation(att, func(ref solver.ResultProxy) (*pb.Ref, error) {
 					id := identity.NewID()
 					def := ref.Definition()
 					lbf.refs[id] = ref
-
-					pbAtt, err := pb.ToInTotoPB(att.PredicateType, &pb.Ref{Id: id, Def: def}, att.PredicatePath, att.Subjects...)
-					if err != nil {
-						return nil, err
-					}
-					attestations[k].Attestation = append(attestations[k].Attestation, &pb.Attestations_Attestation{
-						Attestation: pbAtt,
-					})
-				default:
-					return nil, errors.Errorf("unknown attestation type %T", att)
+					return &pb.Ref{Id: id, Def: def}, nil
+				})
+				if err != nil {
+					return nil, err
 				}
+
+				pba, err := pb.ToAttestationPB(a)
+				if err != nil {
+					return nil, err
+				}
+				if attestations[k] == nil {
+					attestations[k] = &pb.Attestations{}
+				}
+				attestations[k].Attestation = append(attestations[k].Attestation, pba)
 			}
 		}
 		pbRes.Attestations = attestations
@@ -890,44 +892,39 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 		if err != nil {
 			return nil, err
 		}
-		r.Ref = ref
+		r.SetRef(ref)
 	case *pb.Result_RefsDeprecated:
-		m := map[string]solver.ResultProxy{}
 		for k, id := range res.RefsDeprecated.Refs {
 			ref, err := lbf.cloneRef(id)
 			if err != nil {
 				return nil, err
 			}
-			m[k] = ref
+			r.AddRef(k, ref)
 		}
-		r.Refs = m
 	case *pb.Result_Ref:
 		ref, err := lbf.cloneRef(res.Ref.Id)
 		if err != nil {
 			return nil, err
 		}
-		r.Ref = ref
+		r.SetRef(ref)
 	case *pb.Result_Refs:
-		m := map[string]solver.ResultProxy{}
 		for k, ref := range res.Refs.Refs {
 			ref, err := lbf.cloneRef(ref.Id)
 			if err != nil {
 				return nil, err
 			}
-			m[k] = ref
+			r.AddRef(k, ref)
 		}
-		r.Refs = m
 	}
 
 	if in.Result.Attestations != nil {
-		r.Attestations = map[string][]frontend.Attestation{}
 		for k, pbAtts := range in.Result.Attestations {
 			for _, pbAtt := range pbAtts.Attestation {
 				att, err := lbf.convertAttestation(pbAtt)
 				if err != nil {
 					return nil, err
 				}
-				r.Attestations[k] = append(r.Attestations[k], att)
+				r.AddAttestation(k, att)
 			}
 		}
 	}
@@ -1441,26 +1438,13 @@ func (lbf *llbBridgeForwarder) cloneRef(id string) (solver.ResultProxy, error) {
 }
 
 func (lbf *llbBridgeForwarder) convertAttestation(att *pb.Attestations_Attestation) (frontend.Attestation, error) {
-	switch att := att.Attestation.(type) {
-	case *pb.Attestations_Attestation_Intoto:
-		predicateType, predicateRef, predicatePath, subjects, err := pb.FromInTotoPB(att)
-		if err != nil {
-			return nil, err
-		}
-
-		ref, err := lbf.cloneRef(predicateRef.Id)
-		if err != nil {
-			return nil, err
-		}
-		return &frontend.InTotoAttestation{
-			PredicateType: predicateType,
-			PredicateRef:  ref,
-			PredicatePath: predicatePath,
-			Subjects:      subjects,
-		}, nil
-	default:
-		return nil, errors.Errorf("unknown attestation type %T", att)
+	a, err := pb.FromAttestationPB(att)
+	if err != nil {
+		return nil, err
 	}
+	return result.ConvertAttestation(a, func(ref *pb.Ref) (solver.ResultProxy, error) {
+		return lbf.cloneRef(ref.Id)
+	})
 }
 
 func serve(ctx context.Context, grpcServer *grpc.Server, conn net.Conn) {

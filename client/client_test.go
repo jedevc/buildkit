@@ -44,6 +44,7 @@ import (
 	"github.com/moby/buildkit/session/sshforward/sshprovider"
 	"github.com/moby/buildkit/solver/errdefs"
 	"github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/attestation"
 	binfotypes "github.com/moby/buildkit/util/buildinfo/types"
 	"github.com/moby/buildkit/util/contentutil"
@@ -6336,16 +6337,16 @@ func testExportAttestations(t *testing.T, sb integration.Sandbox) {
 			PredicateRef:  refAttest,
 			PredicatePath: "/attestation.json",
 			PredicateType: "https://example.com/attestations/v1.0",
-			Subjects: []attestation.InTotoSubject{
-				&attestation.InTotoSubjectSelf{},
+			Subjects: []result.InTotoSubject{
+				&result.InTotoSubjectSelf{},
 			},
 		})
 		res.AddAttestation(pk, &gateway.InTotoAttestation{
 			PredicateRef:  refAttest,
 			PredicatePath: "/attestation2.json",
 			PredicateType: "https://example.com/attestations2/v1.0",
-			Subjects: []attestation.InTotoSubject{
-				&attestation.InTotoSubjectRaw{
+			Subjects: []result.InTotoSubject{
+				&result.InTotoSubjectRaw{
 					Name:   "/attestation.json",
 					Digest: []digest.Digest{successDigest},
 				},

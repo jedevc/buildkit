@@ -1,8 +1,21 @@
-package attestation
+package result
 
 import (
 	digest "github.com/opencontainers/go-digest"
 )
+
+type Attestation[T any] interface {
+	isAttestation()
+}
+
+type InTotoAttestation[T any] struct {
+	PredicateType string
+	PredicateRef  T
+	PredicatePath string
+	Subjects      []InTotoSubject
+}
+
+func (a *InTotoAttestation[T]) isAttestation() {}
 
 type InTotoSubject interface {
 	isInTotoSubject()

@@ -22,6 +22,7 @@ import (
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/snapshot"
 	"github.com/moby/buildkit/solver"
+	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/attestation"
 	"github.com/moby/buildkit/util/bklog"
 	"github.com/moby/buildkit/util/buildinfo"
@@ -54,7 +55,7 @@ type ImageWriter struct {
 	opt WriterOpt
 }
 
-func (ic *ImageWriter) Commit(ctx context.Context, inp exporter.Source, sessionID string, opts *ImageCommitOpts) (*ocispecs.Descriptor, error) {
+func (ic *ImageWriter) Commit(ctx context.Context, inp *exporter.Source, sessionID string, opts *ImageCommitOpts) (*ocispecs.Descriptor, error) {
 	platformsBytes, ok := inp.Metadata[exptypes.ExporterPlatformsKey]
 
 	if len(inp.Refs) > 0 && !ok {
@@ -281,12 +282,12 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, s session.Group,
 				}
 				for _, subject := range att.Subjects {
 					switch subject2 := subject.(type) {
-					case *attestation.InTotoSubjectSelf:
+					case *result.InTotoSubjectSelf:
 						statements[i].Subject = append(statements[i].Subject, intoto.Subject{
 							Name:   "_",
-							Digest: attestation.DigestToDigestMap(desc.Digest),
+							Digest: result.DigestToDigestMap(desc.Digest),
 						})
-					case *attestation.InTotoSubjectRaw:
+					case *result.InTotoSubjectRaw:
 						statements[i].Subject = append(statements[i].Subject, intoto.Subject{
 							Name:   subject2.Name,
 							Digest: subject2.DigestMap(),
