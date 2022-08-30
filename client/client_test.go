@@ -37,6 +37,7 @@ import (
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
+	"github.com/moby/buildkit/frontend/attest"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/identity"
@@ -176,6 +177,7 @@ func TestIntegration(t *testing.T) {
 		testExportAnnotationsMediaTypes,
 		testExportAttestations,
 		testAttestationDefaultSubject,
+		testAttestationBundle,
 		testSBOMScan,
 		testSBOMScanSingleRef,
 	)
@@ -6771,6 +6773,167 @@ func testAttestationDefaultSubject(t *testing.T, sb integration.Sandbox) {
 	}
 }
 
+func testAttestationBundle(t *testing.T, sb integration.Sandbox) {
+	requiresLinux(t)
+	c, err := New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+
+	registry, err := sb.NewRegistry()
+	if errors.Is(err, integration.ErrRequirements) {
+		t.Skip(err.Error())
+	}
+
+	ps := []ocispecs.Platform{
+		platforms.MustParse("linux/amd64"),
+	}
+
+	frontend := func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		res := gateway.NewResult()
+		expPlatforms := &exptypes.Platforms{}
+
+		for _, p := range ps {
+			pk := platforms.Format(p)
+			expPlatforms.Platforms = append(expPlatforms.Platforms, exptypes.Platform{ID: pk, Platform: p})
+
+			// build image
+			st := llb.Scratch().File(
+				llb.Mkfile("/greeting", 0600, []byte(fmt.Sprintf("hello %s!", pk))),
+			)
+			def, err := st.Marshal(ctx)
+			if err != nil {
+				return nil, err
+			}
+			r, err := c.Solve(ctx, gateway.SolveRequest{
+				Definition: def.ToPB(),
+			})
+			if err != nil {
+				return nil, err
+			}
+			ref, err := r.SingleRef()
+			if err != nil {
+				return nil, err
+			}
+			_, err = ref.ToState()
+			if err != nil {
+				return nil, err
+			}
+			res.AddRef(pk, ref)
+
+			bundle := attest.Bundle{
+				{
+					Kind: "in-toto",
+					Path: "/attestation.json",
+					InToto: attest.InTotoAttestation{
+						PredicateType: "https://example.com/attestations/v1.0",
+						Subjects: []attest.InTotoSubject{
+							{Kind: "self"},
+						},
+					},
+				},
+				{
+					Kind: "in-toto",
+					Path: "/attestation2.json",
+					InToto: attest.InTotoAttestation{
+						PredicateType: "https://example.com/attestations/v1.0",
+						Subjects: []attest.InTotoSubject{
+							{Kind: "self"},
+						},
+					},
+				},
+			}
+			dt, err := json.Marshal(bundle)
+			require.NoError(t, err)
+
+			// build attestations
+			st = llb.Scratch().File(llb.
+				Mkfile("/attestation.json", 0600, []byte(`{"foo": "1"}`)).
+				Mkfile("/attestation2.json", 0600, []byte(`{"bar": "2"}`)).
+				Mkfile("/bundle.json", 0600, dt))
+			def, err = st.Marshal(ctx)
+			if err != nil {
+				return nil, err
+			}
+			r, err = c.Solve(ctx, gateway.SolveRequest{
+				Definition: def.ToPB(),
+			})
+			if err != nil {
+				return nil, err
+			}
+			refAttest, err := r.SingleRef()
+			if err != nil {
+				return nil, err
+			}
+			_, err = ref.ToState()
+			if err != nil {
+				return nil, err
+			}
+			res.AddAttestation(pk, result.Attestation{
+				Kind: gatewaypb.AttestationKindBundle,
+				Path: "/bundle.json",
+			}, refAttest)
+		}
+
+		dt, err := json.Marshal(expPlatforms)
+		if err != nil {
+			return nil, err
+		}
+		res.AddMeta(exptypes.ExporterPlatformsKey, dt)
+
+		return res, nil
+	}
+
+	target := registry + "/buildkit/testattestationsbundle:latest"
+	_, err = c.Build(sb.Context(), SolveOpt{
+		Exports: []ExportEntry{
+			{
+				Type: ExporterImage,
+				Attrs: map[string]string{
+					"name": target,
+					"push": "true",
+				},
+			},
+		},
+	}, "", frontend, nil)
+	require.NoError(t, err)
+
+	desc, provider, err := contentutil.ProviderFromRef(target)
+	require.NoError(t, err)
+
+	imgs, err := testutil.ReadImages(sb.Context(), provider, desc)
+	require.NoError(t, err)
+	require.Equal(t, len(ps)*2, len(imgs.Images))
+
+	var bases []*testutil.ImageInfo
+	for _, p := range ps {
+		pk := platforms.Format(p)
+		bases = append(bases, imgs.Find(pk))
+	}
+
+	atts := imgs.Filter("unknown/unknown")
+	require.Equal(t, len(ps)*1, len(atts.Images))
+	for i, att := range atts.Images {
+		require.Equal(t, 2, len(att.LayersRaw))
+		var attest intoto.Statement
+		require.NoError(t, json.Unmarshal(att.LayersRaw[0], &attest))
+		var attest2 intoto.Statement
+		require.NoError(t, json.Unmarshal(att.LayersRaw[1], &attest2))
+
+		require.Equal(t, "https://example.com/attestations/v1.0", attest.PredicateType)
+		require.Equal(t, "https://example.com/attestations/v1.0", attest2.PredicateType)
+		require.Equal(t, map[string]interface{}{"foo": "1"}, attest.Predicate)
+		require.Equal(t, map[string]interface{}{"bar": "2"}, attest2.Predicate)
+		name, _ := purl.RefToPURL(target, &ps[i])
+		subjects := []intoto.Subject{{
+			Name: name,
+			Digest: map[string]string{
+				"sha256": bases[i].Desc.Digest.Encoded(),
+			},
+		}}
+		require.Equal(t, subjects, attest.Subject)
+		require.Equal(t, subjects, attest2.Subject)
+	}
+}
+
 func testSBOMScan(t *testing.T, sb integration.Sandbox) {
 	requiresLinux(t)
 	c, err := New(sb.Context(), sb.Address())
@@ -6817,7 +6980,23 @@ func testSBOMScan(t *testing.T, sb integration.Sandbox) {
 		res.AddMeta(exptypes.ExporterPlatformsKey, dt)
 
 		var img ocispecs.Image
-		img.Config.Cmd = []string{"/bin/sh", "-c", `for f in $BUILDKIT_SCAN_SOURCES/*; do echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.json; done`}
+		cmd := `
+for f in $BUILDKIT_SCAN_SOURCES/*; do
+	echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
+	cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
+	[
+	  {
+	    "kind": "in-toto",
+	    "path": "spdx.result.json",
+	    "in-toto": {
+	      "predicate-type": "https://spdx.dev/Document"
+	    }
+	  }
+	]
+	BUNDLE
+done
+`
+		img.Config.Cmd = []string{"/bin/sh", "-c", cmd}
 		config, err := json.Marshal(img)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to marshal image config")
@@ -7082,7 +7261,23 @@ func testSBOMScanSingleRef(t *testing.T, sb integration.Sandbox) {
 		res.AddMeta(exptypes.ExporterPlatformsKey, dt)
 
 		var img ocispecs.Image
-		img.Config.Cmd = []string{"/bin/sh", "-c", `for f in $BUILDKIT_SCAN_SOURCES/*; do echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.json; done`}
+		cmd := `
+for f in $BUILDKIT_SCAN_SOURCES/*; do
+	echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
+	cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
+	[
+	  {
+	    "kind": "in-toto",
+	    "path": "spdx.result.json",
+	    "in-toto": {
+	      "predicate-type": "https://spdx.dev/Document"
+	    }
+	  }
+	]
+	BUNDLE
+done
+`
+		img.Config.Cmd = []string{"/bin/sh", "-c", cmd}
 		config, err := json.Marshal(img)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to marshal image config")

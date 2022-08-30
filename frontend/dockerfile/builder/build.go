@@ -20,13 +20,13 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend"
+	"github.com/moby/buildkit/frontend/attest"
 	"github.com/moby/buildkit/frontend/attestations"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	gwpb "github.com/moby/buildkit/frontend/gateway/pb"
-	"github.com/moby/buildkit/frontend/sbom"
 	"github.com/moby/buildkit/frontend/subrequests/outline"
 	"github.com/moby/buildkit/frontend/subrequests/targets"
 	"github.com/moby/buildkit/solver/errdefs"
@@ -480,7 +480,7 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 		}
 	}
 
-	var scanner sbom.Scanner[client.Reference]
+	var scanner attest.Scanner[client.Reference]
 	attests, err := attestations.Parse(opts)
 	if err != nil {
 		return nil, err
@@ -512,7 +512,7 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 			}
 			return res.Ref, nil
 		}
-		scanner = sbom.CreateScanner(ref, toState, fromState)
+		scanner = attest.CreateSBOMScanner(ref, toState, fromState)
 	}
 
 	eg, ctx2 = errgroup.WithContext(ctx)

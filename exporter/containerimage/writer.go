@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	cacheconfig "github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/exporter"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
+	"github.com/moby/buildkit/frontend/attest"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/snapshot"
@@ -257,7 +259,7 @@ func (ic *ImageWriter) exportLayers(ctx context.Context, refCfg cacheconfig.RefC
 
 func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommitOpts, s session.Group, desc *ocispecs.Descriptor, refs map[string]cache.ImmutableRef, attestations []result.Attestation) ([]intoto.Statement, error) {
 	eg, ctx := errgroup.WithContext(ctx)
-	statements := make([]intoto.Statement, len(attestations))
+	statements := make([][]intoto.Statement, len(attestations))
 
 	if len(attestations) > 0 && refs == nil {
 		return nil, errors.Errorf("no refs map provided to lookup attestation keys")
@@ -266,58 +268,60 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 	for i, att := range attestations {
 		i, att := i, att
 		eg.Go(func() error {
+			ref, ok := refs[att.Ref]
+			if !ok {
+				return errors.Errorf("key %s not found in refs map", att.Ref)
+			}
+			mount, err := ref.Mount(ctx, true, s)
+			if err != nil {
+				return err
+			}
+			lm := snapshot.LocalMounter(mount)
+			src, err := lm.Mount()
+			if err != nil {
+				return err
+			}
+			defer lm.Unmount()
+
+			data, err := os.ReadFile(path.Join(src, att.Path))
+			if err != nil {
+				return err
+			}
+			if len(data) == 0 {
+				data = nil
+			}
+
 			switch att.Kind {
 			case gatewaypb.AttestationKindInToto:
-				ref, ok := refs[att.Ref]
-				if !ok {
-					return errors.Errorf("key %s not found in refs map", att.Ref)
-				}
-
-				mount, err := ref.Mount(ctx, true, s)
-				if err != nil {
-					return err
-				}
-
-				lm := snapshot.LocalMounter(mount)
-				src, err := lm.Mount()
-				if err != nil {
-					return err
-				}
-				defer lm.Unmount()
-				predicate, err := os.ReadFile(path.Join(src, att.Path))
-				if err != nil {
-					return err
-				}
-				if len(predicate) == 0 {
-					predicate = nil
-				}
-
+				var subjects []intoto.Subject
 				if len(att.InToto.Subjects) == 0 {
 					att.InToto.Subjects = []result.InTotoSubject{{
 						Kind: gatewaypb.InTotoSubjectKindSelf,
 					}}
 				}
-
-				subjects := make([]intoto.Subject, 0, len(att.InToto.Subjects))
 				for _, subject := range att.InToto.Subjects {
 					name := "_"
 					if subject.Name != "" {
 						name = subject.Name
 					}
+
 					switch subject.Kind {
 					case gatewaypb.InTotoSubjectKindSelf:
 						var names []string
-						if opts.ImageName != "" {
-							for _, name := range strings.Split(opts.ImageName, ",") {
-								name, err := purl.RefToPURL(name, desc.Platform)
-								if err != nil {
-									return err
-								}
-								names = append(names, name)
+						for _, name := range strings.Split(opts.ImageName, ",") {
+							if name == "" {
+								continue
 							}
-						} else {
+							name, err := purl.RefToPURL(name, desc.Platform)
+							if err != nil {
+								return err
+							}
+							names = append(names, name)
+						}
+						if names == nil {
 							names = []string{name}
 						}
+
 						for _, name := range names {
 							subjects = append(subjects, intoto.Subject{
 								Name:   name,
@@ -329,28 +333,54 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 							Name:   name,
 							Digest: result.DigestMap(subject.Digest...),
 						})
-
 					default:
-						return errors.Errorf("unknown attestation subject kind %q", subject.Kind)
+						return errors.Errorf("unknown attestation subject type %T", subject)
 					}
 				}
-				statements[i] = intoto.Statement{
+
+				stmt := intoto.Statement{
 					StatementHeader: intoto.StatementHeader{
 						Type:          intoto.StatementInTotoV01,
 						PredicateType: att.InToto.PredicateType,
 						Subject:       subjects,
 					},
-					Predicate: json.RawMessage(predicate),
+					Predicate: json.RawMessage(data),
 				}
+				statements[i] = append(statements[i], stmt)
+			case gatewaypb.AttestationKindBundle:
+				if data == nil {
+					return errors.New("empty attestation bundle")
+				}
+				var bundle attest.Bundle
+				if err := json.Unmarshal(data, &bundle); err != nil {
+					return err
+				}
+				atts, err := bundle.Unpack()
+				if err != nil {
+					return err
+				}
+				for i := range atts {
+					atts[i].Ref = att.Ref
+					atts[i].Path = path.Join(filepath.Dir(att.Path), atts[i].Path)
+				}
+				stmts, err := ic.extractAttestations(ctx, opts, s, desc, refs, atts)
+				if err != nil {
+					return err
+				}
+				statements[i] = stmts
 			}
 			return nil
 		})
 	}
-
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	return statements, nil
+
+	var allStatements []intoto.Statement
+	for _, statements := range statements {
+		allStatements = append(allStatements, statements...)
+	}
+	return allStatements, nil
 }
 
 func (ic *ImageWriter) commitDistributionManifest(ctx context.Context, opts *ImageCommitOpts, ref cache.ImmutableRef, config []byte, remote *solver.Remote, annotations *Annotations, inlineCache []byte, buildInfo []byte) (*ocispecs.Descriptor, *ocispecs.Descriptor, error) {
