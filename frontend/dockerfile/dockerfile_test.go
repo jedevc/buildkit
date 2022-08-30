@@ -27,6 +27,7 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/continuity/fs/fstest"
+	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/frontend/dockerfile/builder"
@@ -144,6 +145,7 @@ var allTests = integration.TestFuncs(
 	testWorkdirCopyIgnoreRelative,
 	testCopyFollowAllSymlinks,
 	testDockerfileAddChownExpand,
+	testSBOMScannerImage,
 )
 
 // Tests that depend on the `security.*` entitlements
@@ -5915,6 +5917,100 @@ COPY --from=build /foo /out /
 	dt, err = os.ReadFile(filepath.Join(destDir, "linux_arm64/foo"))
 	require.NoError(t, err)
 	require.Equal(t, "foo is bar-arm64\n", string(dt))
+}
+
+func testSBOMScannerImage(t *testing.T, sb integration.Sandbox) {
+	ctx := sb.Context()
+
+	c, err := client.New(ctx, sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	registry, err := sb.NewRegistry()
+	if errors.Is(err, integration.ErrRequirements) {
+		t.Skip(err.Error())
+	}
+	require.NoError(t, err)
+
+	f := getFrontend(t, sb)
+
+	dockerfile := []byte(`
+FROM busybox:latest
+CMD for f in $BUILDKIT_SCAN_SOURCES/*; do echo "{\"scan\": \"success\"}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.json; done
+`)
+	scannerDir, err := integration.Tmpdir(
+		t,
+		fstest.CreateFile("Dockerfile", dockerfile, 0600),
+	)
+	require.NoError(t, err)
+
+	scannerTarget := registry + "/buildkit/testsbomscanner:latest"
+	_, err = f.Solve(sb.Context(), c, client.SolveOpt{
+		LocalDirs: map[string]string{
+			builder.DefaultLocalNameDockerfile: scannerDir,
+			builder.DefaultLocalNameContext:    scannerDir,
+		},
+		Exports: []client.ExportEntry{
+			{
+				Type: client.ExporterImage,
+				Attrs: map[string]string{
+					"name": scannerTarget,
+					"push": "true",
+				},
+			},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	dockerfile = []byte(`
+FROM scratch
+COPY <<EOF /foo
+data
+EOF
+`)
+	dir, err := integration.Tmpdir(
+		t,
+		fstest.CreateFile("Dockerfile", dockerfile, 0600),
+	)
+	require.NoError(t, err)
+
+	target := registry + "/buildkit/testsbomscannertarget:latest"
+	_, err = f.Solve(sb.Context(), c, client.SolveOpt{
+		LocalDirs: map[string]string{
+			builder.DefaultLocalNameDockerfile: dir,
+			builder.DefaultLocalNameContext:    dir,
+		},
+		FrontendAttrs: map[string]string{
+			"attest:sbom": "generator=" + scannerTarget,
+		},
+		Exports: []client.ExportEntry{
+			{
+				Type: client.ExporterImage,
+				Attrs: map[string]string{
+					"name": target,
+					"push": "true",
+				},
+			},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	desc, provider, err := contentutil.ProviderFromRef(target)
+	require.NoError(t, err)
+	imgs, err := testutil.ReadImages(sb.Context(), provider, desc)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(imgs.Images))
+
+	img := imgs.Find(platforms.Format(platforms.Normalize(platforms.DefaultSpec())))
+	require.NotNil(t, img)
+	require.Equal(t, []byte("data\n"), img.Layers[0]["foo"].Data)
+
+	att := imgs.Find("unknown/unknown")
+	var attest intoto.Statement
+	require.NoError(t, json.Unmarshal(att.LayersRaw[0], &attest))
+	require.Equal(t, "https://in-toto.io/Statement/v0.1", attest.Type)
+	require.Equal(t, intoto.PredicateSPDX, attest.PredicateType)
+	require.Equal(t, map[string]interface{}{"scan": "success"}, attest.Predicate)
 }
 
 func runShell(dir string, cmds ...string) error {
