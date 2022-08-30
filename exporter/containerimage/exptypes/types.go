@@ -15,6 +15,14 @@ const (
 	ExporterPlatformsKey         = "refs.platforms"
 )
 
+// ExporterPlatformKeys are the subset of exporter keys that can be suffixed by
+// a platform to become platform specific
+var ExporterPlatformKeys = []string{
+	ExporterImageConfigKey,
+	ExporterInlineCache,
+	ExporterBuildInfo,
+}
+
 type Platforms struct {
 	Platforms []Platform
 }
