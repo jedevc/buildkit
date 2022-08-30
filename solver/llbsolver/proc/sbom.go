@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 
 	"github.com/docker/distribution/reference"
-	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend"
-	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
-	"github.com/moby/buildkit/frontend/sbom"
+	"github.com/moby/buildkit/frontend/attest"
 	"github.com/moby/buildkit/solver"
 	"github.com/moby/buildkit/solver/llbsolver"
 	"github.com/pkg/errors"
@@ -28,20 +26,6 @@ func SBOMProcessor(scannerRef reference.Named) llbsolver.Processor {
 			if err := json.Unmarshal(platformsBytes, &ps); err != nil {
 				return nil, errors.Wrapf(err, "failed to parse platforms passed to sbom processor")
 			}
-		}
-
-		var keys []string
-	refloop:
-		for _, p := range ps.Platforms {
-			for _, attestation := range res.Attestations[p.ID] {
-				switch attestation.Kind {
-				case gatewaypb.AttestationKindInToto:
-					if attestation.InToto.PredicateType == intoto.PredicateSPDX {
-						continue refloop
-					}
-				}
-			}
-			keys = append(keys, p.ID)
 		}
 
 		toState := func(ctx context.Context, ref solver.ResultProxy) (llb.State, error) {
@@ -65,9 +49,9 @@ func SBOMProcessor(scannerRef reference.Named) llbsolver.Processor {
 			}
 			return res.Ref, nil
 		}
-		scanner := sbom.CreateScanner(scannerRef, toState, fromState)
+		scanner := attest.CreateSBOMScanner(scannerRef, toState, fromState)
 
-		if err := scanner(ctx, s.Bridge(j), res, keys); err != nil {
+		if err := scanner(ctx, s.Bridge(j), res, ps.IDs()); err != nil {
 			return nil, err
 		}
 

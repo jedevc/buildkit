@@ -1,4 +1,4 @@
-package sbom
+package attest
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/docker/distribution/reference"
-	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/solver/result"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -19,12 +19,16 @@ import (
 
 type Scanner[T any] func(ctx context.Context, resolver llb.ImageMetaResolver, target *result.Result[T], keys []string) error
 
-func CreateScanner[T any](scanner reference.Named, toState func(context.Context, T) (llb.State, error), fromState func(context.Context, llb.State) (T, error)) Scanner[T] {
+func CreateSBOMScanner[T any](scanner reference.Named, toState func(context.Context, T) (llb.State, error), fromState func(context.Context, llb.State) (T, error)) Scanner[T] {
 	if scanner == nil {
 		return nil
 	}
 
 	return func(ctx context.Context, resolver llb.ImageMetaResolver, target *result.Result[T], keys []string) error {
+		if _, ok := target.Metadata[exptypes.ExporterHasSBOM]; ok {
+			return nil
+		}
+
 		scanner = reference.TagNameOnly(scanner)
 		_, dt, err := resolver.ResolveImageConfig(ctx, scanner.String(), llb.ResolveImageConfigOpt{})
 		if err != nil {
@@ -77,12 +81,10 @@ func CreateScanner[T any](scanner reference.Named, toState func(context.Context,
 				}
 
 				target.AddAttestation(k, result.Attestation{
-					Kind: gatewaypb.AttestationKindInToto,
-					Path: "/spdx.json",
-					InToto: result.InTotoAttestation{
-						PredicateType: intoto.PredicateSPDX,
-					},
+					Kind: gatewaypb.AttestationKindBundle,
+					Path: "index.json",
 				}, r)
+				target.AddMeta(exptypes.ExporterHasSBOM, []byte{})
 				return nil
 			})
 		}

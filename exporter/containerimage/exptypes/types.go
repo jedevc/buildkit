@@ -13,6 +13,7 @@ const (
 	ExporterInlineCache          = "containerimage.inlinecache"
 	ExporterBuildInfo            = "containerimage.buildinfo"
 	ExporterPlatformsKey         = "refs.platforms"
+	ExporterHasSBOM              = "attest.sbom"
 )
 
 // ExporterPlatformKeys are the subset of exporter keys that can be suffixed by

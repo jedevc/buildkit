@@ -5934,7 +5934,24 @@ func testSBOMScannerImage(t *testing.T, sb integration.Sandbox) {
 
 	dockerfile := []byte(`
 FROM busybox:latest
-CMD for f in $BUILDKIT_SCAN_SOURCES/*; do echo "{\"scan\": \"success\"}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.json; done
+COPY <<-"EOF" /scan.sh
+	set -e
+	for f in $BUILDKIT_SCAN_SOURCES/*; do
+		echo "{\"scan\": \"success\"}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
+		cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
+		[
+		  {
+		    "kind": "in-toto",
+		    "path": "spdx.result.json",
+		    "in-toto": {
+		      "predicate-type": "https://spdx.dev/Document"
+		    }
+		  }
+		]
+		BUNDLE
+	done
+EOF
+CMD sh /scan.sh
 `)
 	scannerDir, err := integration.Tmpdir(
 		t,
