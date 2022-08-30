@@ -19,6 +19,14 @@ type Platforms struct {
 	Platforms []Platform
 }
 
+func (ps *Platforms) IDs() []string {
+	ids := make([]string, len(ps.Platforms))
+	for i, p := range ps.Platforms {
+		ids[i] = p.ID
+	}
+	return ids
+}
+
 type Platform struct {
 	ID       string
 	Platform ocispecs.Platform
