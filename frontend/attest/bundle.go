@@ -1,6 +1,9 @@
 package attest
 
 import (
+	"encoding/json"
+	"io"
+
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/solver/result"
 	digest "github.com/opencontainers/go-digest"
@@ -27,6 +30,26 @@ type InTotoSubject struct {
 
 	Name   string          `json:"name"`
 	Digest []digest.Digest `json:"digest"`
+}
+
+func Load(r io.Reader) (Bundle, error) {
+	var bundle Bundle
+	dec := json.NewDecoder(r)
+	for {
+		var att Attestation
+		err := dec.Decode(&att)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		bundle = append(bundle, att)
+	}
+
+	if len(bundle) == 0 {
+		return nil, errors.New("empty attestation bundle")
+	}
+	return bundle, nil
 }
 
 func (bundle Bundle) Unpack() ([]result.Attestation, error) {

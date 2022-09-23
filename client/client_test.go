@@ -6841,14 +6841,17 @@ func testAttestationBundle(t *testing.T, sb integration.Sandbox) {
 					},
 				},
 			}
-			dt, err := json.Marshal(bundle)
-			require.NoError(t, err)
+			buff := bytes.NewBuffer(nil)
+			enc := json.NewEncoder(buff)
+			for _, att := range bundle {
+				enc.Encode(att)
+			}
 
 			// build attestations
 			st = llb.Scratch().File(llb.
 				Mkfile("/attestation.json", 0600, []byte(`{"foo": "1"}`)).
 				Mkfile("/attestation2.json", 0600, []byte(`{"bar": "2"}`)).
-				Mkfile("/bundle.json", 0600, dt))
+				Mkfile("/bundle.json", 0600, buff.Bytes()))
 			def, err = st.Marshal(ctx)
 			if err != nil {
 				return nil, err
@@ -6981,20 +6984,16 @@ func testSBOMScan(t *testing.T, sb integration.Sandbox) {
 
 		var img ocispecs.Image
 		cmd := `
-for f in $BUILDKIT_SCAN_SOURCES/*; do
-	echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
-	cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
-	[
-	  {
-	    "kind": "in-toto",
-	    "path": "spdx.result.json",
-	    "in-toto": {
-	      "predicate-type": "https://spdx.dev/Document"
-	    }
-	  }
-	]
-	BUNDLE
-done
+echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATION/spdx.json
+cat <<BUNDLE >> "$BUILDKIT_SCAN_DESTINATION_INDEX"
+{
+  "kind": "in-toto",
+  "path": "spdx.json",
+  "in-toto": {
+    "predicate-type": "https://spdx.dev/Document"
+  }
+}
+BUNDLE
 `
 		img.Config.Cmd = []string{"/bin/sh", "-c", cmd}
 		config, err := json.Marshal(img)
@@ -7262,20 +7261,16 @@ func testSBOMScanSingleRef(t *testing.T, sb integration.Sandbox) {
 
 		var img ocispecs.Image
 		cmd := `
-for f in $BUILDKIT_SCAN_SOURCES/*; do
-	echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
-	cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
-	[
-	  {
-	    "kind": "in-toto",
-	    "path": "spdx.result.json",
-	    "in-toto": {
-	      "predicate-type": "https://spdx.dev/Document"
-	    }
-	  }
-	]
-	BUNDLE
-done
+echo "{\"success\": false}" > $BUILDKIT_SCAN_DESTINATION/spdx.json
+cat <<BUNDLE >> "$BUILDKIT_SCAN_DESTINATION_INDEX"
+{
+  "kind": "in-toto",
+  "path": "spdx.json",
+  "in-toto": {
+    "predicate-type": "https://spdx.dev/Document"
+  }
+}
+BUNDLE
 `
 		img.Config.Cmd = []string{"/bin/sh", "-c", cmd}
 		config, err := json.Marshal(img)

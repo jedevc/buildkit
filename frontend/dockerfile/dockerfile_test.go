@@ -5938,20 +5938,16 @@ func testSBOMScannerImage(t *testing.T, sb integration.Sandbox) {
 FROM busybox:latest
 COPY <<-"EOF" /scan.sh
 	set -e
-	for f in $BUILDKIT_SCAN_SOURCES/*; do
-		echo "{\"scan\": \"success\"}" > $BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/spdx.result.json
-		cat <<-BUNDLE > "$BUILDKIT_SCAN_DESTINATIONS/$(basename $f)/index.json"
-		[
-		  {
-		    "kind": "in-toto",
-		    "path": "spdx.result.json",
-		    "in-toto": {
-		      "predicate-type": "https://spdx.dev/Document"
-		    }
-		  }
-		]
-		BUNDLE
-	done
+	echo "{\"scan\": \"success\"}" > $BUILDKIT_SCAN_DESTINATION/spdx.json
+	cat <<BUNDLE >> "$BUILDKIT_SCAN_DESTINATION_INDEX"
+	{
+	  "kind": "in-toto",
+	  "path": "spdx.json",
+	  "in-toto": {
+	    "predicate-type": "https://spdx.dev/Document"
+	  }
+	}
+	BUNDLE
 EOF
 CMD sh /scan.sh
 `)

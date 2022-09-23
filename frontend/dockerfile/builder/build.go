@@ -480,7 +480,7 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 		}
 	}
 
-	var scanner attest.Scanner[client.Reference]
+	var scanner attest.Scanner
 	attests, err := attestations.Parse(opts)
 	if err != nil {
 		return nil, err
@@ -496,23 +496,10 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 		}
 		exportMap = true
 
-		toState := func(ctx context.Context, ref client.Reference) (llb.State, error) {
-			return ref.ToState()
+		scanner, err = attest.CreateSBOMScanner(ctx, c, ref)
+		if err != nil {
+			return nil, err
 		}
-		fromState := func(ctx context.Context, ref llb.State) (client.Reference, error) {
-			def, err := ref.Marshal(ctx)
-			if err != nil {
-				return nil, err
-			}
-			res, err := c.Solve(ctx, frontend.SolveRequest{
-				Definition: def.ToPB(),
-			})
-			if err != nil {
-				return nil, err
-			}
-			return res.Ref, nil
-		}
-		scanner = attest.CreateSBOMScanner(ref, toState, fromState)
 	}
 
 	eg, ctx2 = errgroup.WithContext(ctx)
@@ -621,9 +608,35 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 	}
 
 	if scanner != nil {
-		if err := scanner(ctx, c, res, expPlatforms.IDs()); err != nil {
-			return nil, err
+		for _, p := range expPlatforms.Platforms {
+			ref, ok := res.Refs[p.ID]
+			if !ok {
+				return nil, errors.Errorf("could not find ref %s", p.ID)
+			}
+			st, err := ref.ToState()
+			if err != nil {
+				return nil, err
+			}
+
+			att, st, err := scanner(ctx, p.ID, st, nil)
+			if err != nil {
+				return nil, err
+			}
+
+			def, err := st.Marshal(ctx)
+			if err != nil {
+				return nil, err
+			}
+			r, err := c.Solve(ctx, frontend.SolveRequest{
+				Definition: def.ToPB(),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			res.AddAttestation(p.ID, att, r.Ref)
 		}
+		res.AddMeta(exptypes.ExporterHasSBOM, []byte{})
 	}
 
 	dt, err := json.Marshal(expPlatforms)

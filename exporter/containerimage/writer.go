@@ -348,17 +348,15 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 				}
 				statements[i] = append(statements[i], stmt)
 			case gatewaypb.AttestationKindBundle:
-				if data == nil {
-					return errors.New("empty attestation bundle")
-				}
-				var bundle attest.Bundle
-				if err := json.Unmarshal(data, &bundle); err != nil {
+				bundle, err := attest.Load(bytes.NewReader(data))
+				if err != nil {
 					return err
 				}
 				atts, err := bundle.Unpack()
 				if err != nil {
 					return err
 				}
+
 				for i := range atts {
 					atts[i].Ref = att.Ref
 					atts[i].Path = path.Join(filepath.Dir(att.Path), atts[i].Path)

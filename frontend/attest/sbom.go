@@ -5,89 +5,68 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"strings"
 
 	"github.com/docker/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/solver/result"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 )
 
-type Scanner[T any] func(ctx context.Context, resolver llb.ImageMetaResolver, target *result.Result[T], keys []string) error
+// Scanner is a function type for scanning the contents of a state and
+// returning a new attestation and state representing the scan results.
+//
+// A scanner is designed a scan a single state, however, additional states can
+// also be attached, for attaching additional information, such as scans of
+// build-contexts or multi-stage builds. Handling these separately allows the
+// scanner to optionally ignore these or to mark them as such in the
+// attestation.
+type Scanner func(ctx context.Context, name string, ref llb.State, extras map[string]llb.State) (result.Attestation, llb.State, error)
 
-func CreateSBOMScanner[T any](scanner reference.Named, toState func(context.Context, T) (llb.State, error), fromState func(context.Context, llb.State) (T, error)) Scanner[T] {
+func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scanner reference.Named) (Scanner, error) {
 	if scanner == nil {
-		return nil
+		return nil, nil
 	}
 
-	return func(ctx context.Context, resolver llb.ImageMetaResolver, target *result.Result[T], keys []string) error {
-		if _, ok := target.Metadata[exptypes.ExporterHasSBOM]; ok {
-			return nil
-		}
+	scanner = reference.TagNameOnly(scanner)
+	_, dt, err := resolver.ResolveImageConfig(ctx, scanner.String(), llb.ResolveImageConfigOpt{})
+	if err != nil {
+		return nil, err
+	}
 
-		scanner = reference.TagNameOnly(scanner)
-		_, dt, err := resolver.ResolveImageConfig(ctx, scanner.String(), llb.ResolveImageConfigOpt{})
-		if err != nil {
-			return err
-		}
+	var cfg ocispecs.Image
+	if err := json.Unmarshal(dt, &cfg); err != nil {
+		return nil, err
+	}
+	if len(cfg.Config.Cmd) == 0 {
+		return nil, fmt.Errorf("scanner %s does not have cmd", scanner.String())
+	}
 
-		var cfg ocispecs.Image
-		if err := json.Unmarshal(dt, &cfg); err != nil {
-			return err
-		}
-		if len(cfg.Config.Cmd) == 0 {
-			return fmt.Errorf("scanner %s does not have cmd", scanner.String())
-		}
-
-		if len(keys) == 0 {
-			return nil
-		}
-
+	return func(ctx context.Context, name string, ref llb.State, extras map[string]llb.State) (result.Attestation, llb.State, error) {
 		srcDir := "/run/src/"
 		outDir := "/run/out/"
 
-		eg, ctx := errgroup.WithContext(ctx)
-		for _, k := range keys {
-			k := k
-			ref, ok := target.Refs[k]
-			if !ok {
-				return errors.Errorf("could not find ref %s", k)
-			}
+		args := []string{}
+		args = append(args, cfg.Config.Entrypoint...)
+		args = append(args, cfg.Config.Cmd...)
+		runsbom := llb.Image(scanner.String()).Run(
+			llb.Dir(cfg.Config.WorkingDir),
+			llb.AddEnv("BUILDKIT_SCAN_SOURCE", path.Join(srcDir, "core")),
+			llb.AddEnv("BUILDKIT_SCAN_SOURCE_EXTRAS", path.Join(srcDir, "extras/")),
+			llb.AddEnv("BUILDKIT_SCAN_DESTINATION", outDir),
+			llb.AddEnv("BUILDKIT_SCAN_DESTINATION_INDEX", path.Join(outDir, "index.json")),
+			llb.Args(args),
+			llb.WithCustomName(fmt.Sprintf("[%s] generating sbom using %s", name, scanner.String())))
 
-			st, err := toState(ctx, ref)
-			if err != nil {
-				return err
-			}
-
-			eg.Go(func() error {
-				runsbom := llb.Image(scanner.String()).Run(
-					llb.Dir(cfg.Config.WorkingDir),
-					llb.AddEnv("BUILDKIT_SCAN_SOURCES", srcDir),
-					llb.AddEnv("BUILDKIT_SCAN_DESTINATIONS", outDir),
-					llb.Args(cfg.Config.Cmd),
-					llb.WithCustomName(fmt.Sprintf("[%s] generating sbom using %s", k, scanner.String())))
-
-				kp := strings.ReplaceAll(k, "/", "-")
-				runsbom.AddMount(path.Join(srcDir, kp), st)
-				stsbom := runsbom.AddMount(path.Join(outDir, kp), llb.Scratch())
-
-				r, err := fromState(ctx, stsbom)
-				if err != nil {
-					return err
-				}
-
-				target.AddAttestation(k, result.Attestation{
-					Kind: gatewaypb.AttestationKindBundle,
-					Path: "index.json",
-				}, r)
-				target.AddMeta(exptypes.ExporterHasSBOM, []byte{})
-				return nil
-			})
+		runsbom.AddMount(path.Join(srcDir, "core"), ref)
+		for k, extra := range extras {
+			runsbom.AddMount(path.Join(srcDir, "extras", k), extra)
 		}
-		return eg.Wait()
-	}
+
+		stsbom := runsbom.AddMount(outDir, llb.Scratch())
+		return result.Attestation{
+			Kind: gatewaypb.AttestationKindBundle,
+			Path: "index.json",
+		}, stsbom, nil
+	}, nil
 }

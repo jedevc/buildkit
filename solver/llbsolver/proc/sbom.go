@@ -16,6 +16,10 @@ import (
 
 func SBOMProcessor(scannerRef reference.Named) llbsolver.Processor {
 	return func(ctx context.Context, res *frontend.Result, s *llbsolver.Solver, j *solver.Job) (*frontend.Result, error) {
+		if _, ok := res.Metadata[exptypes.ExporterHasSBOM]; ok {
+			return res, nil
+		}
+
 		platformsBytes, ok := res.Metadata[exptypes.ExporterPlatformsKey]
 		if !ok {
 			return nil, errors.Errorf("unable to collect multiple refs, missing platforms mapping")
@@ -28,31 +32,41 @@ func SBOMProcessor(scannerRef reference.Named) llbsolver.Processor {
 			}
 		}
 
-		toState := func(ctx context.Context, ref solver.ResultProxy) (llb.State, error) {
-			defop, err := llb.NewDefinitionOp(ref.Definition())
-			if err != nil {
-				return llb.State{}, err
-			}
-			return llb.NewState(defop), nil
-		}
-		fromState := func(ctx context.Context, ref llb.State) (solver.ResultProxy, error) {
-			def, err := ref.Marshal(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			res, err := s.Bridge(j).Solve(ctx, frontend.SolveRequest{
-				Definition: def.ToPB(),
-			}, j.SessionID)
-			if err != nil {
-				return nil, err
-			}
-			return res.Ref, nil
-		}
-		scanner := attest.CreateSBOMScanner(scannerRef, toState, fromState)
-
-		if err := scanner(ctx, s.Bridge(j), res, ps.IDs()); err != nil {
+		scanner, err := attest.CreateSBOMScanner(ctx, s.Bridge(j), scannerRef)
+		if err != nil {
 			return nil, err
+		}
+
+		if scanner != nil {
+			for _, p := range ps.Platforms {
+				ref, ok := res.Refs[p.ID]
+				if !ok {
+					return nil, errors.Errorf("could not find ref %s", p.ID)
+				}
+				defop, err := llb.NewDefinitionOp(ref.Definition())
+				if err != nil {
+					return nil, err
+				}
+				st := llb.NewState(defop)
+
+				att, st, err := scanner(ctx, p.ID, st, nil)
+				if err != nil {
+					return nil, err
+				}
+
+				def, err := st.Marshal(ctx)
+				if err != nil {
+					return nil, err
+				}
+
+				r, err := s.Bridge(j).Solve(ctx, frontend.SolveRequest{
+					Definition: def.ToPB(),
+				}, j.SessionID)
+				if err != nil {
+					return nil, err
+				}
+				res.AddAttestation(p.ID, att, r.Ref)
+			}
 		}
 
 		return res, nil
