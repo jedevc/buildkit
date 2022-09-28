@@ -58,13 +58,11 @@ type ImageWriter struct {
 }
 
 func (ic *ImageWriter) Commit(ctx context.Context, inp *exporter.Source, sessionID string, opts *ImageCommitOpts) (*ocispecs.Descriptor, error) {
+	var p exptypes.Platforms
 	platformsBytes, ok := inp.Metadata[exptypes.ExporterPlatformsKey]
-
 	if len(inp.Refs) > 0 && !ok {
 		return nil, errors.Errorf("unable to export multiple refs, missing platforms mapping")
 	}
-
-	var p exptypes.Platforms
 	if ok && len(platformsBytes) > 0 {
 		if err := json.Unmarshal(platformsBytes, &p); err != nil {
 			return nil, errors.Wrapf(err, "failed to parse platforms passed to exporter")
@@ -352,13 +350,12 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 				}
 
 				for _, entry := range entries {
-					f, err := os.Open(path.Join(dir, entry.Name()))
+					data, err := os.ReadFile(path.Join(dir, entry.Name()))
 					if err != nil {
 						return err
 					}
-					dec := json.NewDecoder(f)
 					var stmt intoto.Statement
-					if err := dec.Decode(&stmt); err != nil {
+					if err := json.Unmarshal(data, &stmt); err != nil {
 						return err
 					}
 					if stmt.Subject == nil {

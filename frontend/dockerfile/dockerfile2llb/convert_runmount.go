@@ -59,13 +59,25 @@ func setCacheUIDGID(m *instructions.Mount, st llb.State) llb.State {
 	return st.File(llb.Mkdir("/cache", mode, llb.WithUIDGID(uid, gid)), llb.WithCustomName("[internal] settings cache mount permissions"))
 }
 
-func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*dispatchState, opt dispatchOpt) ([]llb.RunOption, error) {
+func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*dispatchState, opt dispatchOpt) ([]llb.RunOption, []string, error) {
 	var out []llb.RunOption
+	var bundles []string
 	mounts := instructions.GetMounts(c)
 
 	for i, mount := range mounts {
 		if mount.From == "" && mount.Type == instructions.MountTypeCache {
 			mount.From = emptyImageName
+		}
+		target := mount.Target
+		if !filepath.IsAbs(filepath.Clean(mount.Target)) {
+			dir, err := d.state.GetDir(context.TODO())
+			if err != nil {
+				return nil, nil, err
+			}
+			target = filepath.Join("/", dir, mount.Target)
+		}
+		if target == "/" {
+			return nil, nil, errors.Errorf("invalid mount target %q", target)
 		}
 		st := opt.buildContext
 		if mount.From != "" {
@@ -78,10 +90,20 @@ func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*
 				llb.TmpfsSize(mount.SizeLimit),
 			))
 		}
+		if mount.Type == instructions.MountTypeBundle {
+			if d.bundles == nil {
+				st = llb.Scratch()
+			} else if bundle, ok := d.bundles[mount.Name]; ok {
+				st = bundle
+			} else {
+				st = llb.Scratch()
+			}
+			bundles = append(bundles, target)
+		}
 		if mount.Type == instructions.MountTypeSecret {
 			secret, err := dispatchSecret(d, mount, c.Location())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			out = append(out, secret)
 			continue
@@ -89,7 +111,7 @@ func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*
 		if mount.Type == instructions.MountTypeSSH {
 			ssh, err := dispatchSSH(d, mount, c.Location())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			out = append(out, ssh)
 			continue
@@ -112,17 +134,6 @@ func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*
 			}
 			mountOpts = append(mountOpts, llb.AsPersistentCacheDir(opt.cacheIDNamespace+"/"+mount.CacheID, sharing))
 		}
-		target := mount.Target
-		if !filepath.IsAbs(filepath.Clean(mount.Target)) {
-			dir, err := d.state.GetDir(context.TODO())
-			if err != nil {
-				return nil, err
-			}
-			target = filepath.Join("/", dir, mount.Target)
-		}
-		if target == "/" {
-			return nil, errors.Errorf("invalid mount target %q", target)
-		}
 		if src := path.Join("/", mount.Source); src != "/" {
 			mountOpts = append(mountOpts, llb.SourcePath(src))
 		} else {
@@ -138,5 +149,5 @@ func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*
 			d.ctxPaths[path.Join("/", filepath.ToSlash(mount.Source))] = struct{}{}
 		}
 	}
-	return out, nil
+	return out, bundles, nil
 }

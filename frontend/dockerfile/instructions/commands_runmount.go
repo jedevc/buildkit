@@ -11,11 +11,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-const MountTypeBind = "bind"
-const MountTypeCache = "cache"
-const MountTypeTmpfs = "tmpfs"
-const MountTypeSecret = "secret"
-const MountTypeSSH = "ssh"
+const (
+	MountTypeBind   = "bind"
+	MountTypeCache  = "cache"
+	MountTypeTmpfs  = "tmpfs"
+	MountTypeSecret = "secret"
+	MountTypeSSH    = "ssh"
+	MountTypeBundle = "bundle"
+)
 
 var allowedMountTypes = map[string]struct{}{
 	MountTypeBind:   {},
@@ -23,11 +26,14 @@ var allowedMountTypes = map[string]struct{}{
 	MountTypeTmpfs:  {},
 	MountTypeSecret: {},
 	MountTypeSSH:    {},
+	MountTypeBundle: {},
 }
 
-const MountSharingShared = "shared"
-const MountSharingPrivate = "private"
-const MountSharingLocked = "locked"
+const (
+	MountSharingShared  = "shared"
+	MountSharingPrivate = "private"
+	MountSharingLocked  = "locked"
+)
 
 var allowedSharingTypes = map[string]struct{}{
 	MountSharingShared:  {},
@@ -120,6 +126,7 @@ type mountState struct {
 
 type Mount struct {
 	Type         string
+	Name         string
 	From         string
 	Source       string
 	Target       string
@@ -202,6 +209,8 @@ func parseMount(value string, expander SingleWordExpander) (*Mount, error) {
 			m.Type = strings.ToLower(value)
 		case "from":
 			m.From = value
+		case "name":
+			m.Name = value
 		case "source", "src":
 			m.Source = value
 		case "target", "dst", "destination":
@@ -287,7 +296,7 @@ func parseMount(value string, expander SingleWordExpander) (*Mount, error) {
 	}
 
 	if roAuto {
-		if m.Type == MountTypeCache || m.Type == MountTypeTmpfs {
+		if m.Type == MountTypeCache || m.Type == MountTypeTmpfs || m.Type == MountTypeBundle {
 			m.ReadOnly = false
 		} else {
 			m.ReadOnly = true

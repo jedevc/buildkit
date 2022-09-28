@@ -330,7 +330,10 @@ func (c *Controller) Solve(ctx context.Context, req *controlapi.SolveRequest) (*
 			return nil, errors.Wrapf(err, "failed to parse sbom generator %s", src)
 		}
 		procs = append(procs, proc.ForceIndexProcessor, proc.SBOMProcessor(ref))
+		panic("unhandled combo")
 	}
+
+	procs = append(procs, proc.ForceIndexProcessor, proc.BundleProcessor())
 
 	resp, err := c.solver.Solve(ctx, req.Ref, req.Session, frontend.SolveRequest{
 		Frontend:       req.Frontend,

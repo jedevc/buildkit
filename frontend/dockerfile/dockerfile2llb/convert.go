@@ -83,6 +83,14 @@ func Dockerfile2LLB(ctx context.Context, dt []byte, opt ConvertOpt) (*llb.State,
 	return &ds.state, &ds.image, bi, nil
 }
 
+func Dockerfile2LLBWithBundles(ctx context.Context, dt []byte, opt ConvertOpt) (*llb.State, *Image, map[string]llb.State, *binfotypes.BuildInfo, error) {
+	ds, bi, err := toDispatchState(ctx, dt, opt)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return &ds.state, &ds.image, ds.bundles, bi, nil
+}
+
 func Dockefile2Outline(ctx context.Context, dt []byte, opt ConvertOpt) (*outline.Outline, error) {
 	ds, _, err := toDispatchState(ctx, dt, opt)
 	if err != nil {
@@ -802,6 +810,7 @@ type dispatchState struct {
 	prefixPlatform bool
 	buildInfo      binfotypes.BuildInfo
 	outline        outlineCapture
+	bundles        map[string]llb.State
 }
 
 type dispatchStates struct {
@@ -954,7 +963,7 @@ func dispatchRun(d *dispatchState, c *instructions.RunCommand, proxy *llb.ProxyE
 		opt = append(opt, llb.WithProxy(*proxy))
 	}
 
-	runMounts, err := dispatchRunMounts(d, c, sources, dopt)
+	runMounts, bundles, err := dispatchRunMounts(d, c, sources, dopt)
 	if err != nil {
 		return err
 	}
@@ -1007,7 +1016,15 @@ func dispatchRun(d *dispatchState, c *instructions.RunCommand, proxy *llb.ProxyE
 		}
 	}
 
-	d.state = d.state.Run(opt...).Root()
+	exec := d.state.Run(opt...)
+	for _, bundleName := range bundles {
+		st := exec.GetMount(bundleName)
+		if d.bundles == nil {
+			d.bundles = map[string]llb.State{}
+		}
+		d.bundles[bundleName] = st
+	}
+	d.state = exec.Root()
 	return commitToHistory(&d.image, "RUN "+runCommandString(args, d.buildArgs, shell.BuildEnvs(env)), true, &d.state)
 }
 

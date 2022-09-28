@@ -513,7 +513,7 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 					opt.Warn = nil
 				}
 				opt.ContextByName = contextByNameFunc(c, c.BuildOpts().SessionID)
-				st, img, bi, err := dockerfile2llb.Dockerfile2LLB(ctx2, dtDockerfile, opt)
+				st, img, bundles, bi, err := dockerfile2llb.Dockerfile2LLBWithBundles(ctx2, dtDockerfile, opt)
 
 				if err != nil {
 					return err
@@ -581,6 +581,10 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 				k := platforms.Format(p)
 
 				if !exportMap {
+					panic("export map needs setting")
+				}
+
+				if !exportMap {
 					res.AddMeta(exptypes.ExporterImageConfigKey, config)
 					res.AddMeta(exptypes.ExporterBuildInfo, buildinfo)
 					res.SetRef(ref)
@@ -592,11 +596,40 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 				} else {
 					res.AddMeta(fmt.Sprintf("%s/%s", exptypes.ExporterImageConfigKey, k), config)
 					res.AddMeta(fmt.Sprintf("%s/%s", exptypes.ExporterBuildInfo, k), buildinfo)
+
 					res.AddRef(k, ref)
 					expPlatforms.Platforms[i] = exptypes.Platform{
 						ID:       k,
 						Platform: p,
 					}
+
+					var bundleNames []string
+					for name, bundle := range bundles {
+						def, err := bundle.Marshal(ctx2)
+						if err != nil {
+							return errors.Wrapf(err, "failed to marshal LLB definition")
+						}
+						r, err := c.Solve(ctx2, client.SolveRequest{
+							Definition: def.ToPB(),
+						})
+						if err != nil {
+							return err
+						}
+						ref, err := r.SingleRef()
+						if err != nil {
+							return err
+						}
+
+						name := fmt.Sprintf("bundle:%s:%s", name, k)
+						res.AddRef(name, ref)
+						bundleNames = append(bundleNames, name)
+					}
+					bundledNames, err := json.Marshal(bundleNames)
+					if err != nil {
+						return err
+					}
+					fmt.Println(bundledNames)
+					res.AddMeta(fmt.Sprintf("%s/%s", exptypes.ExporterBundles, k), bundledNames)
 				}
 				return nil
 			})
