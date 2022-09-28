@@ -48,9 +48,9 @@ func Parse(v map[string]string) (map[string]map[string]string, error) {
 	for k, v := range attests {
 		attrs := make(map[string]string)
 		out[k] = attrs
-		if k == KeyTypeSbom {
-			attrs["generator"] = defaultSBOMGenerator
-		}
+		// if k == KeyTypeSbom {
+		// 	attrs["generator"] = defaultSBOMGenerator
+		// }
 		if v == "" {
 			continue
 		}

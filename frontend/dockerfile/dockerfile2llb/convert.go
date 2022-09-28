@@ -813,6 +813,11 @@ type dispatchState struct {
 	bundles        map[string]llb.State
 }
 
+type bundle struct {
+	name   string
+	target string
+}
+
 type dispatchStates struct {
 	states       []*dispatchState
 	statesByName map[string]*dispatchState
@@ -1017,12 +1022,12 @@ func dispatchRun(d *dispatchState, c *instructions.RunCommand, proxy *llb.ProxyE
 	}
 
 	exec := d.state.Run(opt...)
-	for _, bundleName := range bundles {
-		st := exec.GetMount(bundleName)
+	for _, b := range bundles {
+		st := exec.GetMount(b.target)
 		if d.bundles == nil {
 			d.bundles = map[string]llb.State{}
 		}
-		d.bundles[bundleName] = st
+		d.bundles[b.name] = st
 	}
 	d.state = exec.Root()
 	return commitToHistory(&d.image, "RUN "+runCommandString(args, d.buildArgs, shell.BuildEnvs(env)), true, &d.state)

@@ -59,9 +59,9 @@ func setCacheUIDGID(m *instructions.Mount, st llb.State) llb.State {
 	return st.File(llb.Mkdir("/cache", mode, llb.WithUIDGID(uid, gid)), llb.WithCustomName("[internal] settings cache mount permissions"))
 }
 
-func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*dispatchState, opt dispatchOpt) ([]llb.RunOption, []string, error) {
+func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*dispatchState, opt dispatchOpt) ([]llb.RunOption, []bundle, error) {
 	var out []llb.RunOption
-	var bundles []string
+	var bundles []bundle
 	mounts := instructions.GetMounts(c)
 
 	for i, mount := range mounts {
@@ -98,7 +98,10 @@ func dispatchRunMounts(d *dispatchState, c *instructions.RunCommand, sources []*
 			} else {
 				st = llb.Scratch()
 			}
-			bundles = append(bundles, target)
+			bundles = append(bundles, bundle{
+				target: target,
+				name:   mount.Name,
+			})
 		}
 		if mount.Type == instructions.MountTypeSecret {
 			secret, err := dispatchSecret(d, mount, c.Location())

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -321,19 +322,19 @@ func (c *Controller) Solve(ctx context.Context, req *controlapi.SolveRequest) (*
 
 	var procs []llbsolver.Processor
 	if attrs, ok := attests["sbom"]; ok {
-		src := attrs["generator"]
-		if src == "" {
-			return nil, errors.Errorf("sbom generator cannot be empty")
+		procs = append(procs, proc.ForceIndexProcessor)
+		if src := attrs["generator"]; src != "" {
+			ref, err := reference.ParseNormalizedNamed(src)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to parse sbom generator %s", src)
+			}
+			procs = append(procs, proc.SBOMProcessor(ref))
+		} else if bundles := attrs["bundles"]; bundles != "" {
+			procs = append(procs, proc.BundleProcessor(strings.Split(bundles, ",")))
+		} else {
+			return nil, errors.Errorf("sbom required, but no generator/bundles provided")
 		}
-		ref, err := reference.ParseNormalizedNamed(src)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse sbom generator %s", src)
-		}
-		procs = append(procs, proc.ForceIndexProcessor, proc.SBOMProcessor(ref))
-		panic("unhandled combo")
 	}
-
-	procs = append(procs, proc.ForceIndexProcessor, proc.BundleProcessor())
 
 	resp, err := c.solver.Solve(ctx, req.Ref, req.Session, frontend.SolveRequest{
 		Frontend:       req.Frontend,

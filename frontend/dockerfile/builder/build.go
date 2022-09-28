@@ -487,18 +487,17 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 	}
 	if attrs, ok := attests[attestations.KeyTypeSbom]; ok {
 		src, ok := attrs["generator"]
-		if !ok {
-			return nil, errors.Errorf("sbom scanner cannot be empty")
-		}
-		ref, err := reference.ParseNormalizedNamed(src)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse sbom scanner %s", src)
-		}
-		exportMap = true
+		if ok {
+			ref, err := reference.ParseNormalizedNamed(src)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to parse sbom scanner %s", src)
+			}
+			exportMap = true
 
-		scanner, err = attest.CreateSBOMScanner(ctx, c, ref)
-		if err != nil {
-			return nil, err
+			scanner, err = attest.CreateSBOMScanner(ctx, c, ref)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -628,7 +627,6 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 					if err != nil {
 						return err
 					}
-					fmt.Println(bundledNames)
 					res.AddMeta(fmt.Sprintf("%s/%s", exptypes.ExporterBundles, k), bundledNames)
 				}
 				return nil
