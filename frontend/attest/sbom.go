@@ -54,7 +54,6 @@ func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scan
 			llb.AddEnv("BUILDKIT_SCAN_SOURCE", path.Join(srcDir, "core")),
 			llb.AddEnv("BUILDKIT_SCAN_SOURCE_EXTRAS", path.Join(srcDir, "extras/")),
 			llb.AddEnv("BUILDKIT_SCAN_DESTINATION", outDir),
-			llb.AddEnv("BUILDKIT_SCAN_DESTINATION_INDEX", path.Join(outDir, "index.json")),
 			llb.Args(args),
 			llb.WithCustomName(fmt.Sprintf("[%s] generating sbom using %s", name, scanner.String())))
 
@@ -66,7 +65,6 @@ func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scan
 		stsbom := runsbom.AddMount(outDir, llb.Scratch())
 		return result.Attestation{
 			Kind: gatewaypb.AttestationKindBundle,
-			Path: "index.json",
 		}, stsbom, nil
 	}, nil
 }

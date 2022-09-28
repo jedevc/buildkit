@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	cacheconfig "github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/exporter"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
-	"github.com/moby/buildkit/frontend/attest"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/snapshot"
@@ -261,6 +259,18 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 	eg, ctx := errgroup.WithContext(ctx)
 	statements := make([][]intoto.Statement, len(attestations))
 
+	var purls []string
+	for _, name := range strings.Split(opts.ImageName, ",") {
+		if name == "" {
+			continue
+		}
+		p, err := purl.RefToPURL(name, desc.Platform)
+		if err != nil {
+			return nil, err
+		}
+		purls = append(purls, p)
+	}
+
 	if len(attestations) > 0 && refs == nil {
 		return nil, errors.Errorf("no refs map provided to lookup attestation keys")
 	}
@@ -283,16 +293,16 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 			}
 			defer lm.Unmount()
 
-			data, err := os.ReadFile(path.Join(src, att.Path))
-			if err != nil {
-				return err
-			}
-			if len(data) == 0 {
-				data = nil
-			}
-
 			switch att.Kind {
 			case gatewaypb.AttestationKindInToto:
+				data, err := os.ReadFile(path.Join(src, att.Path))
+				if err != nil {
+					return err
+				}
+				if len(data) == 0 {
+					data = nil
+				}
+
 				var subjects []intoto.Subject
 				if len(att.InToto.Subjects) == 0 {
 					att.InToto.Subjects = []result.InTotoSubject{{
@@ -307,21 +317,8 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 
 					switch subject.Kind {
 					case gatewaypb.InTotoSubjectKindSelf:
-						var names []string
-						for _, name := range strings.Split(opts.ImageName, ",") {
-							if name == "" {
-								continue
-							}
-							name, err := purl.RefToPURL(name, desc.Platform)
-							if err != nil {
-								return err
-							}
-							names = append(names, name)
-						}
-						if names == nil {
-							names = []string{name}
-						}
-
+						names := []string{name}
+						names = append(names, purls...)
 						for _, name := range names {
 							subjects = append(subjects, intoto.Subject{
 								Name:   name,
@@ -348,24 +345,32 @@ func (ic *ImageWriter) extractAttestations(ctx context.Context, opts *ImageCommi
 				}
 				statements[i] = append(statements[i], stmt)
 			case gatewaypb.AttestationKindBundle:
-				bundle, err := attest.Load(bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				atts, err := bundle.Unpack()
+				dir := path.Join(src, att.Path)
+				entries, err := os.ReadDir(dir)
 				if err != nil {
 					return err
 				}
 
-				for i := range atts {
-					atts[i].Ref = att.Ref
-					atts[i].Path = path.Join(filepath.Dir(att.Path), atts[i].Path)
+				for _, entry := range entries {
+					f, err := os.Open(path.Join(dir, entry.Name()))
+					if err != nil {
+						return err
+					}
+					dec := json.NewDecoder(f)
+					var stmt intoto.Statement
+					if err := dec.Decode(&stmt); err != nil {
+						return err
+					}
+					if stmt.Subject == nil {
+						for _, name := range purls {
+							stmt.Subject = append(stmt.Subject, intoto.Subject{
+								Name:   name,
+								Digest: result.DigestMap(desc.Digest),
+							})
+						}
+					}
+					statements[i] = append(statements[i], stmt)
 				}
-				stmts, err := ic.extractAttestations(ctx, opts, s, desc, refs, atts)
-				if err != nil {
-					return err
-				}
-				statements[i] = stmts
 			}
 			return nil
 		})
