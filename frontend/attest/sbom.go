@@ -21,7 +21,12 @@ import (
 // build-contexts or multi-stage builds. Handling these separately allows the
 // scanner to optionally ignore these or to mark them as such in the
 // attestation.
-type Scanner func(ctx context.Context, name string, ref llb.State, extras map[string]llb.State) (result.Attestation, llb.State, error)
+type Scanner func(ctx context.Context, name string, target ScanTarget, extras map[string]ScanTarget) (result.Attestation, llb.State, error)
+
+type ScanTarget struct {
+	State llb.State
+	SBOMs []llb.State
+}
 
 func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scanner reference.Named) (Scanner, error) {
 	if scanner == nil {
@@ -42,7 +47,7 @@ func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scan
 		return nil, fmt.Errorf("scanner %s does not have cmd", scanner.String())
 	}
 
-	return func(ctx context.Context, name string, ref llb.State, extras map[string]llb.State) (result.Attestation, llb.State, error) {
+	return func(ctx context.Context, name string, target ScanTarget, extras map[string]ScanTarget) (result.Attestation, llb.State, error) {
 		srcDir := "/run/src/"
 		outDir := "/run/out/"
 
@@ -57,9 +62,15 @@ func CreateSBOMScanner(ctx context.Context, resolver llb.ImageMetaResolver, scan
 			llb.Args(args),
 			llb.WithCustomName(fmt.Sprintf("[%s] generating sbom using %s", name, scanner.String())))
 
-		runsbom.AddMount(path.Join(srcDir, "core"), ref)
+		runsbom.AddMount(path.Join(srcDir, "core"), target.State)
+		for i, sbom := range target.SBOMs {
+			runsbom.AddMount(path.Join(srcDir, "core", "dev", "sboms", fmt.Sprint(i)), sbom)
+		}
 		for k, extra := range extras {
-			runsbom.AddMount(path.Join(srcDir, "extras", k), extra)
+			runsbom.AddMount(path.Join(srcDir, "extras", k), extra.State)
+			for i, sbom := range extra.SBOMs {
+				runsbom.AddMount(path.Join(srcDir, "extras", k, "dev", "sboms", fmt.Sprint(i)), sbom)
+			}
 		}
 
 		stsbom := runsbom.AddMount(outDir, llb.Scratch())

@@ -638,7 +638,8 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 		return nil, err
 	}
 
-	if scanner != nil {
+	if scanner != nil && false {
+		// skip this
 		for _, p := range expPlatforms.Platforms {
 			ref, ok := res.Refs[p.ID]
 			if !ok {
@@ -649,7 +650,7 @@ func Build(ctx context.Context, c client.Client) (_ *client.Result, err error) {
 				return nil, err
 			}
 
-			att, st, err := scanner(ctx, p.ID, st, nil)
+			att, st, err := scanner(ctx, p.ID, attest.ScanTarget{State: st}, nil)
 			if err != nil {
 				return nil, err
 			}

@@ -328,7 +328,11 @@ func (c *Controller) Solve(ctx context.Context, req *controlapi.SolveRequest) (*
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to parse sbom generator %s", src)
 			}
-			procs = append(procs, proc.SBOMProcessor(ref))
+			var bundles []string
+			if bs := attrs["bundles"]; bs != "" {
+				bundles = strings.Split(bs, ",")
+			}
+			procs = append(procs, proc.SBOMProcessor(ref, bundles))
 		} else if bundles := attrs["bundles"]; bundles != "" {
 			procs = append(procs, proc.BundleProcessor(strings.Split(bundles, ",")))
 		} else {
