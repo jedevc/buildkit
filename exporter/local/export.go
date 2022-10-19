@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -11,11 +12,15 @@ import (
 	"github.com/moby/buildkit/cache"
 	"github.com/moby/buildkit/exporter"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
+	"github.com/moby/buildkit/exporter/util/attestation"
 	"github.com/moby/buildkit/exporter/util/epoch"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
 	"github.com/moby/buildkit/snapshot"
+	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/progress"
+	"github.com/moby/buildkit/util/staticfs"
+	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
@@ -90,7 +95,7 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 		}
 	}
 
-	export := func(ctx context.Context, k string, ref cache.ImmutableRef) func() error {
+	export := func(ctx context.Context, k string, p *ocispecs.Platform, ref cache.ImmutableRef, attestations []result.Attestation) func() error {
 		return func() error {
 			var src string
 			var err error
@@ -121,7 +126,6 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 
 			walkOpt := &fsutil.WalkOpt{}
 			var idMapFunc func(p string, st *fstypes.Stat) fsutil.MapResult
-
 			if idmap != nil {
 				idMapFunc = func(p string, st *fstypes.Stat) fsutil.MapResult {
 					uid, gid, err := idmap.ToContainer(idtools.Identity{
@@ -136,7 +140,6 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 					return fsutil.MapResultKeep
 				}
 			}
-
 			walkOpt.Map = func(p string, st *fstypes.Stat) fsutil.MapResult {
 				res := fsutil.MapResultKeep
 				if idMapFunc != nil {
@@ -149,6 +152,41 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 			}
 
 			fs := fsutil.NewFS(src, walkOpt)
+
+			attestations, err = attestation.Unbundle(ctx, session.NewGroup(sessionID), inp.Refs, attestations)
+			if err != nil {
+				return err
+			}
+			stmts, err := attestation.Extract(ctx, session.NewGroup(sessionID), inp.Refs, attestations, nil)
+			if err != nil {
+				return err
+			}
+			if len(stmts) > 0 {
+				stmtFS := staticfs.NewFS()
+
+				names := map[string]struct{}{}
+				for i, stmt := range stmts {
+					dt, err := json.Marshal(stmt)
+					if err != nil {
+						return errors.Wrap(err, "failed to marshal attestation")
+					}
+
+					name := path.Base(attestations[i].Path)
+					if _, ok := names[name]; ok {
+						return errors.Errorf("duplicate attestation path name %s", name)
+					}
+					names[name] = struct{}{}
+
+					st := fstypes.Stat{
+						Mode: 0600,
+						Path: name,
+					}
+					stmtFS.Add(name, st, dt)
+				}
+
+				fs = staticfs.NewMergeFS(fs, stmtFS)
+			}
+
 			lbl := "copying files"
 			if isMap {
 				lbl += " " + k
@@ -159,6 +197,7 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 				if e.epoch != nil {
 					st.ModTime = e.epoch.UnixNano()
 				}
+
 				fs, err = fsutil.SubDirFS([]fsutil.Dir{{FS: fs, Stat: st}})
 				if err != nil {
 					return err
@@ -181,10 +220,10 @@ func (e *localExporterInstance) Export(ctx context.Context, inp *exporter.Source
 			if !ok {
 				return nil, errors.Errorf("failed to find ref for ID %s", p.ID)
 			}
-			eg.Go(export(ctx, p.ID, r))
+			eg.Go(export(ctx, p.ID, &p.Platform, r, inp.Attestations[p.ID]))
 		}
 	} else {
-		eg.Go(export(ctx, "", inp.Ref))
+		eg.Go(export(ctx, "", nil, inp.Ref, nil))
 	}
 
 	if err := eg.Wait(); err != nil {
