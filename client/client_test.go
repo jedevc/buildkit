@@ -177,6 +177,7 @@ func TestIntegration(t *testing.T) {
 		testExportAnnotationsMediaTypes,
 		testExportAttestations,
 		testAttestationDefaultSubject,
+		testTimestampDirectories,
 		testSourceDateEpochLayerTimestamps,
 		testSourceDateEpochClamp,
 		testSourceDateEpochReset,
@@ -2289,6 +2290,47 @@ func testOCIExporter(t *testing.T, sb integration.Sandbox) {
 	}
 
 	checkAllReleasable(t, c, sb, true)
+}
+
+func testTimestampDirectories(t *testing.T, sb integration.Sandbox) {
+	requiresLinux(t)
+	c, err := New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	busybox := llb.Image("busybox:latest")
+	st := llb.Scratch()
+
+	run := func(cmd string) {
+		st = busybox.Run(llb.Shlex(cmd), llb.Dir("/wd")).AddMount("/wd", st)
+	}
+
+	run(`sh -c "mkdir foo && echo bar > foo/bar && touch -t 197001010000.00 foo foo/bar"`)
+
+	def, err := st.Marshal(sb.Context())
+	require.NoError(t, err)
+
+	destDir, err := os.MkdirTemp("", "buildkit")
+	require.NoError(t, err)
+	defer os.RemoveAll(destDir)
+
+	_, err = c.Solve(sb.Context(), def, SolveOpt{
+		Exports: []ExportEntry{
+			{
+				Type:      ExporterLocal,
+				OutputDir: destDir,
+			},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	fi, err := os.Stat(filepath.Join(destDir, "foo/bar"))
+	require.NoError(t, err)
+	require.Equal(t, fi.ModTime().Format(time.RFC3339), "1970-01-01T00:00:00Z")
+
+	fi, err = os.Stat(filepath.Join(destDir, "foo"))
+	require.NoError(t, err)
+	require.Equal(t, fi.ModTime().Format(time.RFC3339), "1970-01-01T00:00:00Z")
 }
 
 func testSourceDateEpochLayerTimestamps(t *testing.T, sb integration.Sandbox) {
