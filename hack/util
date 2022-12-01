@@ -23,24 +23,35 @@ if [ "$CI" = "true" ]; then
   progressFlag="--progress=plain"
 fi
 
-buildxCmd() {
-  if docker buildx version >/dev/null 2>&1; then
+buildxBin=""
+builderName=""
+if docker buildx version >/dev/null 2>&1; then
+  buildxBin="docker buildx"
+elif buildx version >/dev/null 2>&1; then
+  buildxBin="buildx"
+else
+  topdir="$(realpath $(dirname "$0")/..)"
+  if [ ! -x "${topdir}/bin/buildx" ]; then
     set -x
-    docker buildx "$@" $progressFlag
-  elif buildx version >/dev/null 2>&1; then
-    set -x
-    buildx "$@" $progressFlag
-  else
-    topdir="$(realpath $(dirname "$0")/..)"
-    if [ ! -x "${topdir}/bin/buildx" ]; then
-      set -x
-      "${topdir}/hack/install-buildx"
-    fi
-    set -x
-    bootstrapName="moby-buildkit"
-    "${topdir}/hack/bootstrap-buildx" "${bootstrapName}"
-    BUILDX_BUILDER="${bootstrapName}" "${topdir}/bin/buildx" "$@" $progressFlag
+    "${topdir}/hack/install-buildx"
   fi
+  buildxBin="${topdir}/bin/buildx"
+  builderName="moby-buildkit"
+  "${topdir}/hack/bootstrap-buildx" "${builderName}"
+fi
+
+buildxCmd() {
+  if [ -n "$builderName" ]; then
+    export BUILDX_BUILDER="${builderName}"
+  fi
+  set -x
+  $buildxBin "$@" $progressFlag
+}
+
+buildAttestFlags() {
+  $buildxBin build --attest=type=sbom >/dev/null 2>&1
+  # exit code 125 means the flag is not supported
+  [ $? -eq 125 ] && echo "" || echo "--attest=type=sbom --attest=type=provenance,mode=max"
 }
 
 currentref=""
