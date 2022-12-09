@@ -2,6 +2,7 @@ package cacheimport
 
 import (
 	"context"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -146,9 +147,16 @@ func (c *item) removeLink(src *item) bool {
 	return found
 }
 
-func (c *item) AddResult(_ digest.Digest, _ int, createdAt time.Time, result *solver.Remote) {
+func (c *item) AddResult(dgst digest.Digest, _ int, createdAt time.Time, result *solver.Remote) {
 	c.resultTime = createdAt
 	c.result = result
+	log.Printf("AddResult %s %v", dgst, createdAt)
+	if result != nil {
+		for _, desc := range result.Descriptors {
+			log.Printf("AddResult desc %s", desc.Digest)
+		}
+	}
+
 }
 
 func (c *item) LinkFrom(rec solver.CacheExporterRecord, index int, selector string) {

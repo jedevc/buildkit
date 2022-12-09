@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"log"
 
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
@@ -84,6 +85,7 @@ func (sr *immutableRef) tryComputeOverlayBlob(ctx context.Context, lower, upper 
 		commitopts = append(commitopts, content.WithLabels(labels))
 	}
 	dgst := cw.Digest()
+	log.Printf("overlay diff %s compress=%v", dgst, compressorFunc != nil)
 	if err := cw.Commit(ctx, 0, dgst, commitopts...); err != nil {
 		if !errdefs.IsAlreadyExists(err) {
 			return emptyDesc, false, errors.Wrap(err, "failed to commit")

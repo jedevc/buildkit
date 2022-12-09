@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -192,6 +193,7 @@ func computeBlobChain(ctx context.Context, sr *immutableRef, createIfNeeded bool
 					if err != nil {
 						logrus.WithError(err).Warnf("failed to compute blob by buildkit differ")
 					}
+					log.Printf("walking diff: %s", desc.Digest)
 				}
 
 				if desc.Digest == "" {
@@ -203,6 +205,7 @@ func computeBlobChain(ctx context.Context, sr *immutableRef, createIfNeeded bool
 					if err != nil {
 						return nil, err
 					}
+					log.Printf("Compare diff: %s", desc.Digest)
 				}
 
 				if desc.Annotations == nil {

@@ -134,7 +134,7 @@ func (ce *exporter) Finalize(ctx context.Context) (map[string]string, error) {
 		var diffID digest.Digest
 		v, ok := dgstPair.Descriptor.Annotations["containerd.io/uncompressed"]
 		if !ok {
-			return nil, errors.Errorf("invalid descriptor without uncompressed annotation")
+			return nil, errors.Errorf("invalid descriptor without uncompressed annotation %+v", dgstPair.Descriptor)
 		}
 		dgst, err := digest.Parse(v)
 		if err != nil {
