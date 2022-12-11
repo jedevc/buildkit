@@ -354,7 +354,7 @@ jobs:
 
   image:
     runs-on: ubuntu-20.04
-    needs: [release-base, test, cross]
+    needs: [release-base, cross]
     strategy:
       fail-fast: false
       matrix:
@@ -396,7 +396,7 @@ jobs:
 
   binaries:
     runs-on: ubuntu-20.04
-    needs: [release-base, test, cross]
+    needs: [release-base, cross]
     steps:
       -
         name: Checkout
@@ -472,7 +472,7 @@ jobs:
   frontend-image:
     runs-on: ubuntu-20.04
     if: github.event_name != 'schedule'
-    needs: [frontend-base, test]
+    needs: [frontend-base]
     steps:
       -
         name: Checkout
