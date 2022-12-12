@@ -24,7 +24,7 @@ on:
       - 'frontend/dockerfile/docs/**'
 
 env:
-  REPO_SLUG_ORIGIN: "moby/buildkit:master@sha256:355199e547ec6531127c4ca2b12f9c56836416561d82860a1e4c5360484e9da2"  # https://github.com/moby/buildkit/commit/e798d2990150dcb1a5470287c45b0c9491793c74
+  REPO_SLUG_ORIGIN: "jedevc/buildkit:local"
   REPO_SLUG_TARGET: "moby/buildkit"
   DF_REPO_SLUG_TARGET: "docker/dockerfile-upstream"
   PLATFORMS: "linux/amd64,linux/arm/v7,linux/arm64,linux/s390x,linux/ppc64le,linux/riscv64"
