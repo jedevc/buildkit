@@ -24,7 +24,7 @@ on:
       - 'frontend/dockerfile/docs/**'
 
 env:
-  REPO_SLUG_ORIGIN: "tonistiigi/buildkit:v0.11-rc2"
+  REPO_SLUG_ORIGIN: "moby/buildkit:master@sha256:355199e547ec6531127c4ca2b12f9c56836416561d82860a1e4c5360484e9da2"  # https://github.com/moby/buildkit/commit/e798d2990150dcb1a5470287c45b0c9491793c74
   REPO_SLUG_TARGET: "moby/buildkit"
   DF_REPO_SLUG_TARGET: "docker/dockerfile-upstream"
   PLATFORMS: "linux/amd64,linux/arm/v7,linux/arm64,linux/s390x,linux/ppc64le,linux/riscv64"
@@ -32,7 +32,7 @@ env:
   CACHE_GHA_SCOPE_BINARIES: "binaries_"
   CACHE_GHA_SCOPE_CROSS: "cross_"
   TESTFLAGS: "-v --parallel=6 --timeout=30m"
-  BUILDX_VERSION: "https://github.com/jedevc/buildx.git#attestations-cli"  # leave empty to use the one available on GitHub virtual environment
+  BUILDX_VERSION: "https://github.com/docker/buildx.git#1e72e32ec3b5fbdc4b6226ff74f614ab063d12b0"  # leave empty to use the one available on GitHub virtual environment
   GO_VERSION: "1.19"
 
 jobs:
