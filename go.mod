@@ -152,3 +152,5 @@ require (
 	golang.org/x/text v0.5.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/containerd/containerd => github.com/jedevc/containerd v0.0.0-20230123150128-85e43b0d1268

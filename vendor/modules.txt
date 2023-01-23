@@ -215,7 +215,7 @@ github.com/containerd/cgroups/stats/v1
 # github.com/containerd/console v1.0.3
 ## explicit; go 1.13
 github.com/containerd/console
-# github.com/containerd/containerd v1.6.15
+# github.com/containerd/containerd v1.6.15 => github.com/jedevc/containerd v0.0.0-20230123150128-85e43b0d1268
 ## explicit; go 1.17
 github.com/containerd/containerd
 github.com/containerd/containerd/api/services/containers/v1
@@ -928,3 +928,4 @@ google.golang.org/protobuf/types/pluginpb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# github.com/containerd/containerd => github.com/jedevc/containerd v0.0.0-20230123150128-85e43b0d1268
