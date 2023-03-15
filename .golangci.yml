@@ -44,6 +44,7 @@ linters-settings:
   forbidigo:
     forbid:
       - '^fmt\.Errorf(# use errors\.Errorf instead)?$'
+      - '^logrus\.(Debug|Info|Warn|Error)f?(# use bklog\.G\(ctx\) instead of logrus directly)?$'
   importas:
     alias:
       - pkg: "github.com/opencontainers/image-spec/specs-go/v1"
