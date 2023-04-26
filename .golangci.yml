@@ -60,57 +60,24 @@ linters-settings:
       - G504  # Import blocklist: net/http/cgi
     config:
       G306: "0644"
-  revive:
-    # Selectively disable rules too strict for us.
-    # Rules are based on https://github.com/mgechev/revive/tree/v1.3.1#recommended-configuration but we disabled if-return and unused-parameter
-    # It seems that we can't exclude specific rules so we define the entier rule table here.
-    # Following rules are disabled
-    # - empty-block
-    # - superfluous-else
-    # - unused-parameter
-    # - unreachable-code
-    # - redefines-builtin-id
-    # - if-return
-    rules:
-      - name: blank-imports
-        disabled: false
-      - name: context-as-argument
-        disabled: false
-      - name: context-keys-type
-        disabled: false
-      - name: dot-imports
-        disabled: false
-      - name: error-return
-        disabled: false
-      - name: error-strings
-        disabled: false
-      - name: error-naming
-        disabled: false
-      - name: exported
-        disabled: false
-      - name: increment-decrement
-        disabled: false
-      - name: var-naming
-        disabled: false
-      - name: var-declaration
-        disabled: false
-      - name: package-comments
-        disabled: false
-      - name: range
-        disabled: false
-      - name: receiver-naming
-        disabled: false
-      - name: time-naming
-        disabled: false
-      - name: unexported-return
-        disabled: false
-      - name: indent-error-flow
-        disabled: false
-      - name: errorf
-        disabled: false
 
 issues:
   exclude-rules:
     - linters:
         - revive
       text: "stutters"
+    - linters:
+        - revive
+      text: "empty-block"
+    - linters:
+        - revive
+      text: "superfluous-else"
+    - linters:
+        - revive
+      text: "unused-parameter"
+    - linters:
+        - revive
+      text: "redefines-builtin-id"
+    - linters:
+        - revive
+      text: "if-return"
