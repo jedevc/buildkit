@@ -132,6 +132,7 @@ func (c moby) New(ctx context.Context, cfg *BackendConfig) (b Backend, cl func()
 
 	err = d.StartWithError(cfg.Logs,
 		"--config-file", dockerdConfigFile,
+		"--iptables=false",
 		"--userland-proxy=false",
 		"--bip", "10.66.66.1/24",
 		"--default-address-pool", "base=10.66.66.0/16,size=24",
