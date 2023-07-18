@@ -5,7 +5,7 @@ import (
 
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/identity"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 )
 
 type Logger func(*client.SolveStatus)
@@ -13,6 +13,7 @@ type Logger func(*client.SolveStatus)
 type SubLogger interface {
 	Wrap(name string, fn func() error) error
 	Log(stream int, dt []byte)
+	SetStatus(*client.VertexStatus)
 }
 
 func Wrap(name string, l Logger, fn func(SubLogger) error) (err error) {
@@ -89,5 +90,12 @@ func (sl *subLogger) Log(stream int, dt []byte) {
 			Data:      dt,
 			Timestamp: time.Now(),
 		}},
+	})
+}
+
+func (sl *subLogger) SetStatus(st *client.VertexStatus) {
+	st.Vertex = sl.dgst
+	sl.logger(&client.SolveStatus{
+		Statuses: []*client.VertexStatus{st},
 	})
 }

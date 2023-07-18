@@ -88,24 +88,23 @@ func logs(clicontext *cli.Context) error {
 		return err
 	}
 
-	pw, err := progresswriter.NewPrinter(ctx, os.Stdout, clicontext.String("progress"))
+	pw, err := progresswriter.NewPrinter(ctx, os.Stdout, os.Stderr, clicontext.String("progress"))
 	if err != nil {
 		return err
 	}
 
 	defer func() {
-		<-pw.Done()
+		pw.Wait()
 	}()
 
 	for {
 		resp, err := cl.Recv()
 		if err != nil {
-			close(pw.Status())
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
 		}
-		pw.Status() <- client.NewSolveStatus(resp)
+		pw.Write(client.NewSolveStatus(resp))
 	}
 }

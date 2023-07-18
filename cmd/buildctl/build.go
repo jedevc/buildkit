@@ -271,14 +271,15 @@ func buildAction(clicontext *cli.Context) error {
 	}
 
 	// not using shared context to not disrupt display but let is finish reporting errors
-	pw, err := progresswriter.NewPrinter(context.TODO(), os.Stderr, clicontext.String("progress"))
+	pw, err := progresswriter.NewPrinter(context.TODO(), os.Stderr, os.Stderr, clicontext.String("progress"))
 	if err != nil {
 		return err
 	}
+	var w progresswriter.Writer = pw
 
 	if traceEnc != nil {
 		traceCh := make(chan *client.SolveStatus)
-		pw = progresswriter.Tee(pw, traceCh)
+		w = progresswriter.Tee(w, traceCh)
 		eg.Go(func() error {
 			for s := range traceCh {
 				if err := traceEnc.Encode(s); err != nil {
@@ -288,30 +289,21 @@ func buildAction(clicontext *cli.Context) error {
 			return nil
 		})
 	}
-	mw := progresswriter.NewMultiWriter(pw)
 
-	var writers []progresswriter.Writer
 	for _, at := range attachable {
 		if s, ok := at.(interface {
 			SetLogger(progresswriter.Logger)
 		}); ok {
-			w := mw.WithPrefix("", false)
+			w := progresswriter.WithPrefix(w, "", false)
 			s.SetLogger(func(s *client.SolveStatus) {
-				w.Status() <- s
+				w.Write(s)
 			})
-			writers = append(writers, w)
 		}
 	}
 
 	var subMetadata map[string][]byte
 
 	eg.Go(func() error {
-		defer func() {
-			for _, w := range writers {
-				close(w.Status())
-			}
-		}()
-
 		sreq := gateway.SolveRequest{
 			Frontend:    solveOpt.Frontend,
 			FrontendOpt: solveOpt.FrontendAttrs,
@@ -319,6 +311,8 @@ func buildAction(clicontext *cli.Context) error {
 		if def != nil {
 			sreq.Definition = def.ToPB()
 		}
+		ch, done := progresswriter.NewChannel(progresswriter.ResetTime(progresswriter.WithPrefix(w, "", false)))
+		defer func() { <-done }()
 		resp, err := c.Build(ctx, solveOpt, "buildctl", func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			_, isSubRequest := sreq.FrontendOpt["requestid"]
 			if isSubRequest {
@@ -334,7 +328,7 @@ func buildAction(clicontext *cli.Context) error {
 				subMetadata = res.Metadata
 			}
 			return res, err
-		}, progresswriter.ResetTime(mw.WithPrefix("", false)).Status())
+		}, ch)
 		if err != nil {
 			return err
 		}
@@ -352,12 +346,11 @@ func buildAction(clicontext *cli.Context) error {
 		return nil
 	})
 
-	eg.Go(func() error {
-		<-pw.Done()
-		return pw.Err()
-	})
-
-	if err := eg.Wait(); err != nil {
+	err = eg.Wait()
+	if err1 := pw.Wait(); err == nil {
+		err = err1
+	}
+	if err != nil {
 		return err
 	}
 
