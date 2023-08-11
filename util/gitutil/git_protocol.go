@@ -1,46 +1,66 @@
 package gitutil
 
 import (
+	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/moby/buildkit/util/sshutil"
 )
 
 const (
-	HTTPProtocol = iota + 1
-	HTTPSProtocol
-	SSHProtocol
-	GitProtocol
-	UnknownProtocol
+	HTTPProtocol    = "http"
+	HTTPSProtocol   = "https"
+	SSHProtocol     = "ssh"
+	GitProtocol     = "git"
+	UnknownProtocol = "unknown"
 )
 
-// ParseProtocol parses a git URL and returns the remote url and protocol type
-func ParseProtocol(remote string) (string, int) {
-	prefixes := map[string]int{
-		"http://":  HTTPProtocol,
-		"https://": HTTPSProtocol,
-		"git://":   GitProtocol,
-		"ssh://":   SSHProtocol,
-	}
-	protocolType := UnknownProtocol
-	for prefix, potentialType := range prefixes {
-		if strings.HasPrefix(remote, prefix) {
-			remote = strings.TrimPrefix(remote, prefix)
-			protocolType = potentialType
+var protos = map[string]struct{}{
+	"http":  {},
+	"https": {},
+	"git":   {},
+	"ssh":   {},
+}
+
+var hasProtoRegexp = regexp.MustCompile(`^[a-z0-9]+://`)
+
+// ParseProtocol parses a git URL and returns the protocol type, the remote,
+// and the path.
+//
+// ParseProtocol understands implicit ssh URLs such as "git@host:repo", and
+// returns the same response as if the URL were "ssh://git@host/repo".
+func ParseProtocol(remote string) (string, string, string) {
+	if hasProtoRegexp.MatchString(remote) {
+		u, err := url.Parse(remote)
+		if err != nil {
+			return remote, "", UnknownProtocol
 		}
-	}
 
-	if protocolType == UnknownProtocol && sshutil.IsImplicitSSHTransport(remote) {
-		protocolType = SSHProtocol
-	}
-
-	// remove name from ssh
-	if protocolType == SSHProtocol {
-		parts := strings.SplitN(remote, "@", 2)
-		if len(parts) == 2 {
-			remote = parts[1]
+		proto := u.Scheme
+		_, ok := protos[proto]
+		if !ok {
+			proto = UnknownProtocol
 		}
+
+		host := u.Host
+		if u.User != nil {
+			host = u.User.String() + "@" + host
+		}
+
+		path := u.Path
+		path = strings.TrimPrefix(path, "/")
+		if u.Fragment != "" {
+			path += "#" + u.Fragment
+		}
+
+		return proto, host, path
 	}
 
-	return remote, protocolType
+	if sshutil.IsImplicitSSHTransport(remote) {
+		remote, path, _ := strings.Cut(remote, ":")
+		return SSHProtocol, remote, path
+	}
+
+	return UnknownProtocol, remote, ""
 }

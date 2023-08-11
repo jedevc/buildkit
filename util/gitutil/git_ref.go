@@ -51,10 +51,17 @@ type GitRef struct {
 func ParseGitRef(ref string) (*GitRef, error) {
 	res := &GitRef{}
 
+	var (
+		proto  string
+		remote string
+		path   string
+	)
+
 	if strings.HasPrefix(ref, "github.com/") {
 		res.IndistinguishableFromLocal = true // Deprecated
+		proto, remote, path = "https", "github.com", strings.TrimPrefix(ref, "github.com/")
 	} else {
-		_, proto := ParseProtocol(ref)
+		proto, remote, path = ParseProtocol(ref)
 		switch proto {
 		case UnknownProtocol:
 			return nil, errdefs.ErrInvalidArgument
@@ -73,11 +80,12 @@ func ParseGitRef(ref string) (*GitRef, error) {
 		}
 	}
 
-	var fragment string
-	res.Remote, fragment, _ = strings.Cut(ref, "#")
-	if len(res.Remote) == 0 {
-		return res, errdefs.ErrInvalidArgument
+	path, fragment, _ := strings.Cut(path, "#")
+	res.Remote = remote + "/" + strings.TrimPrefix(path, "/")
+	if !res.IndistinguishableFromLocal {
+		res.Remote = proto + "://" + res.Remote
 	}
+
 	res.Commit, res.SubDir, _ = strings.Cut(fragment, ":")
 	repoSplitBySlash := strings.Split(res.Remote, "/")
 	res.ShortName = strings.TrimSuffix(repoSplitBySlash[len(repoSplitBySlash)-1], ".git")

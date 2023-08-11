@@ -239,25 +239,12 @@ type ImageInfo struct {
 // Additionally the ".git" directory is removed after the clone, you can keep ith with the [KeepGitDir] [GitOption].
 func Git(remote, ref string, opts ...GitOption) State {
 	url := strings.Split(remote, "#")[0]
-
-	var protocolType int
-	remote, protocolType = gitutil.ParseProtocol(remote)
-
-	var sshHost string
-	if protocolType == gitutil.SSHProtocol {
-		parts := strings.SplitN(remote, ":", 2)
-		if len(parts) == 2 {
-			sshHost = parts[0]
-			// keep remote consistent with http(s) version
-			remote = parts[0] + "/" + parts[1]
-		}
-	}
-	if protocolType == gitutil.UnknownProtocol {
+	proto, remote, path := gitutil.ParseProtocol(url)
+	if proto == gitutil.UnknownProtocol {
 		url = "https://" + url
 	}
 
-	id := remote
-
+	id := remote + "/" + strings.TrimPrefix(path, "/")
 	if ref != "" {
 		id += "#" + ref
 	}
@@ -290,11 +277,11 @@ func Git(remote, ref string, opts ...GitOption) State {
 			addCap(&gi.Constraints, pb.CapSourceGitHTTPAuth)
 		}
 	}
-	if protocolType == gitutil.SSHProtocol {
+	if proto == gitutil.SSHProtocol {
 		if gi.KnownSSHHosts != "" {
 			attrs[pb.AttrKnownSSHHosts] = gi.KnownSSHHosts
-		} else if sshHost != "" {
-			keyscan, err := sshutil.SSHKeyScan(sshHost)
+		} else if remote != "" {
+			keyscan, err := sshutil.SSHKeyScan(remote)
 			if err == nil {
 				// best effort
 				attrs[pb.AttrKnownSSHHosts] = keyscan
