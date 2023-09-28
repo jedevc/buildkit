@@ -364,7 +364,7 @@ func (b *bindMount) Mount() ([]mount.Mount, func() error, error) {
 	return []mount.Mount{{
 		Type:    "bind",
 		Source:  b.dir,
-		Options: []string{"bind", "ro"},
+		Options: []string{"bind", "ro", "shared"},
 	}}, func() error { return nil }, nil
 }
 func (b *bindMount) IdentityMapping() *idtools.IdentityMapping {

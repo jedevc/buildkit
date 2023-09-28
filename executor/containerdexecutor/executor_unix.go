@@ -165,7 +165,7 @@ func (d *containerState) getTaskOpts() (containerd.NewTaskOpts, error) {
 	rootfs := containerd.WithRootFS([]mount.Mount{{
 		Source:  d.rootfsPath,
 		Type:    "bind",
-		Options: []string{"rbind"},
+		Options: []string{"rbind", "rshared"},
 	}})
 	if runtime.GOOS == "freebsd" {
 		rootfs = containerd.WithRootFS([]mount.Mount{{

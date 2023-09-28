@@ -261,7 +261,7 @@ func (s *submounts) subMount(m mount.Mount, subPath string) (mount.Mount, error)
 		// a mount type it does not understand. Leaving the mount type empty on Windows will
 		// yield the same result.
 		mntType = "bind"
-		opts = append(opts, "rbind")
+		opts = append(opts, "rbind", "rshared")
 	}
 
 	s.m[h] = mountRef{

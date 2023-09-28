@@ -1751,6 +1751,7 @@ func (sm *sharableMountable) Mount() (_ []mount.Mount, _ func() error, retErr er
 				Options: []string{
 					"rw",
 					"rbind",
+					"rshared",
 				},
 			},
 		}
