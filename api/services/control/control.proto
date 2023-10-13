@@ -170,6 +170,7 @@ message InfoRequest {}
 
 message InfoResponse {
 	moby.buildkit.v1.types.BuildkitVersion buildkitVersion = 1;
+	string name = 2;
 }
 
 message BuildHistoryRequest {

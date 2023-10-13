@@ -54,6 +54,7 @@ import (
 )
 
 type Opt struct {
+	Name                      string
 	SessionManager            *session.Manager
 	WorkerController          *worker.Controller
 	Frontends                 map[string]frontend.Frontend
@@ -536,6 +537,7 @@ func (c *Controller) ListWorkers(ctx context.Context, r *controlapi.ListWorkersR
 
 func (c *Controller) Info(ctx context.Context, r *controlapi.InfoRequest) (*controlapi.InfoResponse, error) {
 	return &controlapi.InfoResponse{
+		Name: c.opt.Name,
 		BuildkitVersion: &apitypes.BuildkitVersion{
 			Package:  version.Package,
 			Version:  version.Version,

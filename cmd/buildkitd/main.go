@@ -745,6 +745,7 @@ func newController(c *cli.Context, cfg *config.Config) (*control.Controller, err
 		"azblob":   azblob.ResolveCacheImporterFunc(),
 	}
 	return control.NewController(control.Opt{
+		Name:                      "buildkit",
 		SessionManager:            sessionManager,
 		WorkerController:          wc,
 		Frontends:                 frontends,
