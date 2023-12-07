@@ -365,20 +365,32 @@ func (gs *gitSourceHandler) CacheKey(ctx context.Context, g session.Group, index
 
 	// TODO: should we assume that remote tag is immutable? add a timer?
 
-	buf, err := git.Run(ctx, "ls-remote", "origin", ref)
+	buf, err := git.Run(ctx, "ls-remote", "origin", ref, ref+"^{}")
 	if err != nil {
 		return "", "", nil, false, errors.Wrapf(err, "failed to fetch remote %s", urlutil.RedactCredentials(remote))
 	}
-	out := string(buf)
-	idx := strings.Index(out, "\t")
-	if idx == -1 {
-		return "", "", nil, false, errors.Errorf("repository does not contain ref %s, output: %q", ref, string(out))
+	headRef, tagRef := "refs/heads/"+ref, "refs/tags/"+ref
+	annotatedTagRef := tagRef + "^{}"
+	var headSha, tagSha string
+	for _, line := range strings.Split(string(buf), "\n") {
+		sha, ref, _ := strings.Cut(line, "\t")
+		switch ref {
+		case headRef:
+			headSha = sha
+		case tagRef, annotatedTagRef:
+			tagSha = sha
+		}
 	}
 
-	sha := string(out[:idx])
+	// git-checkout prefers branches in case of ambiguity
+	sha := headSha
+	if sha == "" {
+		sha = tagSha
+	}
 	if !isCommitSHA(sha) {
 		return "", "", nil, false, errors.Errorf("invalid commit sha %q", sha)
 	}
+
 	cacheKey := gs.shaToCacheKey(sha)
 	gs.cacheKey = cacheKey
 	return cacheKey, sha, nil, true, nil

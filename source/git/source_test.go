@@ -296,13 +296,16 @@ func testFetchByTag(t *testing.T, tag, expectedCommitSubject string, isAnnotated
 			gitutil.WithWorkTree(dir),
 		)
 
+		// get current commit sha
+		headCommit, err := git.Run(ctx, "rev-parse", "HEAD")
+		require.NoError(t, err)
+
+		// ensure that we checked out the same commit as was in the cache key
+		require.Equal(t, strings.TrimSpace(string(headCommit)), pin1)
+
 		if isAnnotatedTag {
 			// get commit sha that the annotated tag points to
 			annotatedTagCommit, err := git.Run(ctx, "rev-list", "-n", "1", tag)
-			require.NoError(t, err)
-
-			// get current commit sha
-			headCommit, err := git.Run(ctx, "rev-parse", "HEAD")
 			require.NoError(t, err)
 
 			// HEAD should match the actual commit sha (and not the sha of the annotated tag,
@@ -582,6 +585,7 @@ func setupGitRepo(t *testing.T) gitRepoFixture {
 		"echo foo > abc",
 		"git add abc",
 		"git commit -m initial",
+		"git tag --no-sign a/v1.2.3",
 		"echo bar > def",
 		"git add def",
 		"git commit -m second",
