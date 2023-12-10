@@ -371,21 +371,28 @@ func (gs *gitSourceHandler) CacheKey(ctx context.Context, g session.Group, index
 	}
 	headRef, tagRef := "refs/heads/"+ref, "refs/tags/"+ref
 	annotatedTagRef := tagRef + "^{}"
-	var headSha, tagSha string
+	var sha, headSha, tagSha string
 	for _, line := range strings.Split(string(buf), "\n") {
-		sha, ref, _ := strings.Cut(line, "\t")
-		switch ref {
+		lineSha, lineRef, _ := strings.Cut(line, "\t")
+		switch lineRef {
+		case ref:
+			sha = lineSha
 		case headRef:
-			headSha = sha
+			headSha = lineSha
 		case tagRef, annotatedTagRef:
-			tagSha = sha
+			tagSha = lineSha
 		}
 	}
 
 	// git-checkout prefers branches in case of ambiguity
-	sha := headSha
+	if sha == "" {
+		sha = headSha
+	}
 	if sha == "" {
 		sha = tagSha
+	}
+	if sha == "" {
+		return "", "", nil, false, errors.Errorf("repository does not contain ref %s, output: %q", ref, string(buf))
 	}
 	if !isCommitSHA(sha) {
 		return "", "", nil, false, errors.Errorf("invalid commit sha %q", sha)
