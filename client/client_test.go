@@ -2247,19 +2247,45 @@ func testBuildExportScratch(t *testing.T, sb integration.Sandbox) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	st := llb.Scratch()
-	def, err := st.Marshal(sb.Context())
-	require.NoError(t, err)
-
 	registry, err := sb.NewRegistry()
 	if errors.Is(err, integration.ErrRequirements) {
 		t.Skip(err.Error())
 	}
 	require.NoError(t, err)
 
+	makeFrontend := func(platforms []string) func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		return func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+			st := llb.Scratch()
+			def, err := st.Marshal(sb.Context())
+			require.NoError(t, err)
+
+			r, err := c.Solve(ctx, gateway.SolveRequest{
+				Definition: def.ToPB(),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			ref, err := r.SingleRef()
+			if err != nil {
+				return nil, err
+			}
+
+			res := gateway.NewResult()
+			if platforms == nil {
+				res.SetRef(ref)
+			} else {
+				for _, p := range platforms {
+					res.AddRef(p, ref)
+				}
+			}
+			return res, nil
+		}
+	}
+
 	target := registry + "/buildkit/build/exporter:withnocompressed"
 
-	_, err = c.Solve(sb.Context(), def, SolveOpt{
+	_, err = c.Build(sb.Context(), SolveOpt{
 		Exports: []ExportEntry{
 			{
 				Type: ExporterImage,
@@ -2271,7 +2297,7 @@ func testBuildExportScratch(t *testing.T, sb integration.Sandbox) {
 				},
 			},
 		},
-	}, nil)
+	}, "", makeFrontend(nil), nil)
 	require.NoError(t, err)
 
 	ctx := namespaces.WithNamespace(sb.Context(), "buildkit")
@@ -2290,6 +2316,21 @@ func testBuildExportScratch(t *testing.T, sb integration.Sandbox) {
 		err = client.ImageService().Delete(ctx, target, images.SynchronousDelete())
 		require.NoError(t, err)
 	}
+
+	_, err = c.Build(sb.Context(), SolveOpt{
+		Exports: []ExportEntry{
+			{
+				Type: ExporterImage,
+				Attrs: map[string]string{
+					"name":        target,
+					"push":        "true",
+					"unpack":      "true",
+					"compression": "uncompressed",
+				},
+			},
+		},
+	}, "", makeFrontend([]string{"linux/amd64", "linux/arm64"}), nil)
+	require.NoError(t, err)
 }
 
 func testBuildHTTPSource(t *testing.T, sb integration.Sandbox) {
