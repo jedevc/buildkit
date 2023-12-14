@@ -93,6 +93,9 @@ func convertRef(ref client.Reference) (*pb.Ref, error) {
 	if !ok {
 		return nil, errors.Errorf("invalid return reference type %T", ref)
 	}
+	if r == nil {
+		return &pb.Ref{}, nil
+	}
 	return &pb.Ref{Id: r.id, Def: r.def}, nil
 }
 
