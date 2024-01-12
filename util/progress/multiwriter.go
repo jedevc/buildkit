@@ -36,6 +36,14 @@ func (ps *MultiWriter) Add(pw Writer) {
 	if !ok {
 		return
 	}
+	if ps.has(rw) {
+		panic("wait we already have this one")
+	}
+	if pws, ok := rw.(*MultiWriter); ok {
+		if pws.has(ps) {
+			panic("wait we can't nest like this")
+		}
+	}
 	ps.mu.Lock()
 	plist := make([]*Progress, 0, len(ps.items))
 	plist = append(plist, ps.items...)
@@ -47,6 +55,27 @@ func (ps *MultiWriter) Add(pw Writer) {
 	}
 	ps.writers[rw] = struct{}{}
 	ps.mu.Unlock()
+}
+
+func (ps *MultiWriter) has(pw rawProgressWriter) bool {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	_, ok := ps.writers[pw]
+	if ok {
+		return true
+	}
+
+	for w := range ps.writers {
+		w, ok := w.(*MultiWriter)
+		if !ok {
+			continue
+		}
+		if w.has(pw) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (ps *MultiWriter) Delete(pw Writer) {

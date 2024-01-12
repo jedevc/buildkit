@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var debugScheduler = false // TODO: replace with logs in build trace
+var debugScheduler = true // TODO: replace with logs in build trace
 
 func init() {
 	if os.Getenv("BUILDKIT_SCHEDULER_DEBUG") == "1" {
@@ -132,6 +132,11 @@ func (s *scheduler) dispatch(e *edge) {
 	// unpark the edge
 	if debugScheduler {
 		debugSchedulerPreUnpark(e, inc, updates, out)
+		bklog.G(context.TODO()).Debugf("%s is %p", e.edge.Vertex.Digest(), e)
+		if e.owner != nil {
+			// weird, but we seem to hit this
+			bklog.G(context.TODO()).Debugf("%s owned by %s", e.edge.Vertex.Digest(), e.owner.edge.Vertex.Digest())
+		}
 	}
 	e.unpark(inc, updates, out, pf)
 	if debugScheduler {
@@ -173,6 +178,7 @@ func (s *scheduler) dispatch(e *edge) {
 					bklog.G(context.TODO()).Debugf("skip merge due to dependency")
 				} else {
 					bklog.G(context.TODO()).Debugf("merging edge %s to %s\n", e.edge.Vertex.Name(), origEdge.edge.Vertex.Name())
+					bklog.G(context.TODO()).Debugf("             %s to %s\n", e.edge.Vertex.Digest(), origEdge.edge.Vertex.Digest())
 					if s.mergeTo(origEdge, e) {
 						s.ef.setEdge(e.edge, origEdge)
 					}

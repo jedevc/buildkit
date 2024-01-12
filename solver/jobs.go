@@ -10,6 +10,7 @@ import (
 	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/solver/errdefs"
+	"github.com/moby/buildkit/util/bklog"
 	"github.com/moby/buildkit/util/flightcontrol"
 	"github.com/moby/buildkit/util/progress"
 	"github.com/moby/buildkit/util/progress/controller"
@@ -175,6 +176,7 @@ func (s *state) setEdge(index Index, targetEdge *edge, targetState *state) {
 
 	if targetState != nil {
 		if _, ok := targetState.allPw[s.mpw]; !ok {
+			bklog.G(context.TODO()).Debugf("adding %p to %p (setEdge)\n", s.mpw, targetState.mpw)
 			targetState.mpw.Add(s.mpw)
 			targetState.allPw[s.mpw] = struct{}{}
 		}

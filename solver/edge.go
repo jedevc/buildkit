@@ -120,6 +120,7 @@ type edgeRequest struct {
 // takeOwnership increases the number of times release needs to be
 // called to release the edge. Called on merging edges.
 func (e *edge) takeOwnership(old *edge) {
+	bklog.G(context.TODO()).Debugf("ownership %s (%p) -> %s (%p)", old.edge.Vertex.Digest(), old, e.edge.Vertex.Digest(), e)
 	e.releaserCount += old.releaserCount + 1
 	old.owner = e
 	old.releaseResult()
@@ -136,6 +137,7 @@ func (e *edge) release() {
 
 func (e *edge) releaseResult() {
 	e.index.Release(e)
+	bklog.G(context.TODO()).Debugf("releasing %s (%p)", e.edge.Vertex.Digest(), e)
 	if e.result != nil {
 		go e.result.Release(context.TODO())
 	}
