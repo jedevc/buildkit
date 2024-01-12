@@ -28,6 +28,8 @@ func newScheduler(ef edgeFactory) *scheduler {
 		stopped: make(chan struct{}),
 		closed:  make(chan struct{}),
 
+		orders: map[string]struct{}{},
+
 		ef: ef,
 	}
 	s.cond = cond.NewStatefulCond(&s.mu)
@@ -55,6 +57,8 @@ type scheduler struct {
 	stopped     chan struct{}
 	stoppedOnce sync.Once
 	closed      chan struct{}
+
+	orders map[string]struct{}
 
 	incoming map[*edge][]*edgePipe
 	outgoing map[*edge][]*edgePipe
@@ -177,6 +181,12 @@ func (s *scheduler) dispatch(e *edge) {
 				if e.isDep(origEdge) || origEdge.isDep(e) {
 					bklog.G(context.TODO()).Debugf("skip merge due to dependency")
 				} else {
+					if _, ok := s.orders[origEdge.edge.Vertex.Digest().String()+e.edge.Vertex.Digest().String()]; ok {
+						// swap merge direction
+						e, origEdge = origEdge, e
+					}
+					s.orders[e.edge.Vertex.Digest().String()+origEdge.edge.Vertex.Digest().String()] = struct{}{}
+
 					bklog.G(context.TODO()).Debugf("merging edge %s to %s\n", e.edge.Vertex.Name(), origEdge.edge.Vertex.Name())
 					bklog.G(context.TODO()).Debugf("             %s to %s\n", e.edge.Vertex.Digest(), origEdge.edge.Vertex.Digest())
 					if s.mergeTo(origEdge, e) {
