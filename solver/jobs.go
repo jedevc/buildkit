@@ -57,6 +57,8 @@ type state struct {
 	clientVertex client.Vertex
 	origDigest   digest.Digest // original LLB digest. TODO: probably better to use string ID so this isn't needed
 
+	owners []Vertex
+
 	mu    sync.Mutex
 	op    *sharedOp
 	edges map[Index]*edge
@@ -178,6 +180,7 @@ func (s *state) setEdge(index Index, targetEdge *edge, targetState *state) {
 			targetState.mpw.Add(s.mpw)
 			targetState.allPw[s.mpw] = struct{}{}
 		}
+		targetState.owners = append(targetState.owners, s.vtx)
 	}
 }
 
@@ -278,6 +281,39 @@ func NewSolver(opts SolverOpt) *Solver {
 	jl.s = newScheduler(jl)
 	jl.updateCond = sync.NewCond(jl.mu.RLocker())
 	return jl
+}
+
+func (jl *Solver) findMergeDirection(dest *edge, src *edge) (*edge, *edge) {
+	jl.mu.RLock()
+	defer jl.mu.RUnlock()
+
+	st, ok := jl.actives[src.edge.Vertex.Digest()]
+	if !ok {
+		return dest, src
+	}
+
+	// attempt to detect a cycle
+	owners := st.owners
+	for len(owners) > 0 {
+		var owners2 []Vertex
+		for _, owner := range owners {
+			st, ok = jl.actives[owner.Digest()]
+			if !ok {
+				continue
+			}
+
+			// if the destination vertex has already been merged into the target,
+			// we should switch the merge order
+			if st.vtx.Digest() == dest.edge.Vertex.Digest() {
+				return src, dest
+			}
+
+			owners2 = append(owners2, st.owners...)
+		}
+		owners = owners2
+	}
+
+	return dest, src
 }
 
 func (jl *Solver) setEdge(e Edge, targetEdge *edge) {
