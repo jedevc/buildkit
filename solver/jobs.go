@@ -181,6 +181,9 @@ func (s *state) setEdge(index Index, targetEdge *edge, targetState *state) {
 		if _, ok := targetState.allPw[s.mpw]; !ok {
 			targetState.mpw.Add(s.mpw)
 			targetState.allPw[s.mpw] = struct{}{}
+			// if s.mspan != nil && s.mspan.SpanContext().IsValid() {
+			// 	targetState.mspan.Add(s.mspan)
+			// }
 		}
 	}
 }
@@ -277,9 +280,7 @@ func (sb *subBuilder) Build(ctx context.Context, e Edge) (CachedResultWithProven
 
 func (sb *subBuilder) InContext(ctx context.Context, f func(context.Context, session.Group) error) error {
 	ctx = progress.WithProgress(ctx, sb.mpw)
-	if sb.mspan.Span != nil {
-		ctx = trace.ContextWithSpan(ctx, sb.mspan)
-	}
+	ctx = trace.ContextWithSpan(ctx, sb.mspan)
 	return f(ctx, sb.state)
 }
 
@@ -895,9 +896,7 @@ func (c cacheWithCacheOpts) Records(ctx context.Context, ck *CacheKey) ([]*Cache
 
 func (s *sharedOp) LoadCache(ctx context.Context, rec *CacheRecord) (Result, error) {
 	ctx = progress.WithProgress(ctx, s.st.mpw)
-	if s.st.mspan.Span != nil {
-		ctx = trace.ContextWithSpan(ctx, s.st.mspan)
-	}
+	ctx = trace.ContextWithSpan(ctx, s.st.mspan)
 	// no cache hit. start evaluating the node
 	span, ctx := tracing.StartSpan(ctx, "load cache: "+s.st.vtx.Name(), trace.WithAttributes(attribute.String("vertex", s.st.vtx.Digest().String())))
 	notifyCompleted := notifyStarted(ctx, &s.st.clientVertex, true)
@@ -936,9 +935,7 @@ func (s *sharedOp) CalcSlowCache(ctx context.Context, index Index, p PreprocessF
 				return "", errors.Errorf("failed to get state for index %d on %v", index, s.st.vtx.Name())
 			}
 			ctx2 := progress.WithProgress(ctx, st.mpw)
-			if st.mspan.Span != nil {
-				ctx2 = trace.ContextWithSpan(ctx2, st.mspan)
-			}
+			ctx2 = trace.ContextWithSpan(ctx2, st.mspan)
 			err = p(ctx2, res, st)
 			if err != nil {
 				f = nil
@@ -949,9 +946,7 @@ func (s *sharedOp) CalcSlowCache(ctx context.Context, index Index, p PreprocessF
 		var key digest.Digest
 		if f != nil {
 			ctx = progress.WithProgress(ctx, s.st.mpw)
-			if s.st.mspan.Span != nil {
-				ctx = trace.ContextWithSpan(ctx, s.st.mspan)
-			}
+			ctx = trace.ContextWithSpan(ctx, s.st.mspan)
 			key, err = f(withAncestorCacheOpts(ctx, s.st), res, s.st)
 		}
 		if err != nil {
@@ -977,9 +972,7 @@ func (s *sharedOp) CalcSlowCache(ctx context.Context, index Index, p PreprocessF
 	})
 	if err != nil {
 		ctx = progress.WithProgress(ctx, s.st.mpw)
-		if s.st.mspan.Span != nil {
-			ctx = trace.ContextWithSpan(ctx, s.st.mspan)
-		}
+		ctx = trace.ContextWithSpan(ctx, s.st.mspan)
 		notifyCompleted := notifyStarted(ctx, &s.st.clientVertex, false)
 		notifyCompleted(err, false)
 		return "", err
@@ -1005,9 +998,7 @@ func (s *sharedOp) CacheMap(ctx context.Context, index int) (resp *cacheMapResp,
 			return nil, s.cacheErr
 		}
 		ctx = progress.WithProgress(ctx, s.st.mpw)
-		if s.st.mspan.Span != nil {
-			ctx = trace.ContextWithSpan(ctx, s.st.mspan)
-		}
+		ctx = trace.ContextWithSpan(ctx, s.st.mspan)
 		ctx = withAncestorCacheOpts(ctx, s.st)
 		if len(s.st.vtx.Inputs()) == 0 {
 			// no cache hit. start evaluating the node
@@ -1084,9 +1075,7 @@ func (s *sharedOp) Exec(ctx context.Context, inputs []Result) (outputs []Result,
 		defer release()
 
 		ctx = progress.WithProgress(ctx, s.st.mpw)
-		if s.st.mspan.Span != nil {
-			ctx = trace.ContextWithSpan(ctx, s.st.mspan)
-		}
+		ctx = trace.ContextWithSpan(ctx, s.st.mspan)
 		ctx = withAncestorCacheOpts(ctx, s.st)
 
 		// no cache hit. start evaluating the node

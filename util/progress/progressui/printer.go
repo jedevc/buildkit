@@ -182,12 +182,12 @@ func (p *textMux) printVtx(t *trace, dgst digest.Digest) {
 		}
 		if v.Error != "" {
 			if strings.HasSuffix(v.Error, context.Canceled.Error()) {
-				fmt.Fprintf(p.w, "#%d CANCELED\n", v.index)
+				fmt.Fprintf(p.w, "#%d CANCELED (%s)\n", v.index, v.Digest)
 			} else {
-				fmt.Fprintf(p.w, "#%d ERROR: %s\n", v.index, v.Error)
+				fmt.Fprintf(p.w, "#%d ERROR: %s (%s)\n", v.index, v.Error, v.Digest)
 			}
 		} else if v.Cached {
-			fmt.Fprintf(p.w, "#%d CACHED\n", v.index)
+			fmt.Fprintf(p.w, "#%d CACHED (%s)\n", v.index, v.Digest)
 		} else {
 			tm := ""
 			var ivals []interval
@@ -202,7 +202,7 @@ func (p *textMux) printVtx(t *trace, dgst digest.Digest) {
 				}
 				tm = fmt.Sprintf(" %.1fs", dt)
 			}
-			fmt.Fprintf(p.w, "#%d DONE%s\n", v.index, tm)
+			fmt.Fprintf(p.w, "#%d DONE%s (%s)\n", v.index, tm, v.Digest)
 		}
 	}
 
