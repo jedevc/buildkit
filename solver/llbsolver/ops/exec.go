@@ -336,6 +336,11 @@ func (e *ExecOp) getMountDeps() ([]dep, error) {
 		case pb.MountContentCache_OFF:
 			contentBasedCache = false
 		case pb.MountContentCache_ON:
+			// HACK: since dagger is the consumer here, simply assume we know
+			// what we're doing.
+			contentBasedCache = true
+			break
+
 			if !contentBasedCache {
 				// If we can't enable cache for safety, then force-enabling it is invalid
 				return nil, errors.Errorf("invalid mount cache content %v", m)
