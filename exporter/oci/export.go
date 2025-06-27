@@ -41,7 +41,8 @@ const (
 )
 
 const (
-	keyTar = "tar"
+	keyTar   = "tar"
+	keyStore = "store"
 )
 
 type Opt struct {
@@ -91,6 +92,8 @@ func (e *imageExporter) Resolve(ctx context.Context, id int, opt map[string]stri
 				return nil, errors.Wrapf(err, "non-bool value specified for %s", k)
 			}
 			i.tar = b
+		case keyStore:
+			i.storeID = v
 		default:
 			if i.meta == nil {
 				i.meta = make(map[string][]byte)
@@ -106,9 +109,10 @@ type imageExporterInstance struct {
 	id    int
 	attrs map[string]string
 
-	opts containerimage.ImageCommitOpts
-	tar  bool
-	meta map[string][]byte
+	opts    containerimage.ImageCommitOpts
+	tar     bool
+	storeID string
+	meta    map[string][]byte
 }
 
 func (e *imageExporterInstance) ID() int {
@@ -280,7 +284,11 @@ func (e *imageExporterInstance) Export(ctx context.Context, src *exporter.Source
 		}
 		report(nil)
 	} else {
-		store := sessioncontent.NewCallerStore(caller, "export")
+		storeID := "export"
+		if e.storeID != "" {
+			storeID = e.storeID
+		}
+		store := sessioncontent.NewCallerStore(caller, storeID)
 		if err != nil {
 			return nil, nil, err
 		}
