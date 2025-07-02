@@ -43,6 +43,7 @@ const (
 const (
 	keyTar   = "tar"
 	keyStore = "store"
+	keyLease = "lease"
 )
 
 type Opt struct {
@@ -94,6 +95,8 @@ func (e *imageExporter) Resolve(ctx context.Context, id int, opt map[string]stri
 			i.tar = b
 		case keyStore:
 			i.storeID = v
+		case keyLease:
+			i.leaseID = v
 		default:
 			if i.meta == nil {
 				i.meta = make(map[string][]byte)
@@ -112,6 +115,7 @@ type imageExporterInstance struct {
 	opts    containerimage.ImageCommitOpts
 	tar     bool
 	storeID string
+	leaseID string
 	meta    map[string][]byte
 }
 
@@ -292,6 +296,10 @@ func (e *imageExporterInstance) Export(ctx context.Context, src *exporter.Source
 		if err != nil {
 			return nil, nil, err
 		}
+		if e.leaseID != "" {
+			store = sessioncontent.NewStoreWithLease(store, e.leaseID)
+		}
+
 		err := contentutil.CopyChain(ctx, store, mprovider, *desc)
 		if err != nil {
 			return nil, nil, err
