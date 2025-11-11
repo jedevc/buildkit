@@ -312,6 +312,10 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 	return lbf.Result()
 }
 
+func MetadataMount(def *opspb.Definition) (*executor.Mount, func(), error) {
+	return metadataMount(def)
+}
+
 func metadataMount(def *opspb.Definition) (*executor.Mount, func(), error) {
 	dt, err := def.MarshalVT()
 	if err != nil {
@@ -443,6 +447,10 @@ func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 		executor:      exec,
 	}
 	return lbf
+}
+
+func ServeLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
+	return serveLLBBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
 }
 
 func serveLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
