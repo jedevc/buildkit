@@ -39,6 +39,16 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err er
 		return errors.New("no export result")
 	}
 
+	opts := c.BuildOpts().Opts
+	if opts == nil {
+		opts = map[string]string{}
+	}
+
+	var subdir string
+	if v, ok := opts["subdir"]; ok {
+		subdir = v
+	}
+
 	ps, err := exptypes.ParsePlatforms(result.Metadata)
 	if err != nil {
 		return err
@@ -51,7 +61,7 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err er
 		return errors.New("no ref in export result")
 	}
 
-	stats, err := result.Ref.ReadDir(ctx, client.ReadDirRequest{Path: "/"})
+	stats, err := result.Ref.ReadDir(ctx, client.ReadDirRequest{Path: subdir})
 	if err != nil {
 		return errors.Wrap(err, "failed to read dir")
 	}
