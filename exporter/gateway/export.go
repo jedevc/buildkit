@@ -274,8 +274,10 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	// 		return nil, stack.Enable(grpcerrors.WrapCode(errdefs.NewUnsupportedFrontendCapError(c), codes.Unimplemented))
 	// 	}
 	// }
-	//
-	lbf, ctx := gateway.ServeLLBBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
+
+	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
+	lbf.SetResult(src.FrontendResult)
+	ctx = lbf.Serve(ctx)
 	// defer lbf.conn.Close() // XXX:
 	defer lbf.Discard()
 

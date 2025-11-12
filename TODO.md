@@ -1,5 +1,7 @@
 # TODO
 
+<https://github.com/moby/buildkit/issues/3037>
+
 Exporter implementation does similar things to gatewayFrontend.Solve. Simpler
 though, because we don't need to serve exporters an equivalent of Solve to make
 recursive requests.
@@ -10,7 +12,7 @@ First:
 
 - [x] Create a GatewayExporter that implements exporter.Exporter
 - [x] Have it start a gateway container, and connect it to the gateway API
-- [ ] Have it operate on one of the inputs. "solve" it, and then use the resulting ref as the root for the exporter.
+- [x] Have it operate on one of the inputs. "solve" it, and then use the resulting ref as the root for the exporter.
   - wrap and forbid Solve calls
 - [ ] Allow passing options to the gateway exporter
 - [ ] Allow writing to a local file / directory

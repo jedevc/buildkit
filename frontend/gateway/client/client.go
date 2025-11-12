@@ -21,6 +21,7 @@ type Result = result.Result[Reference]
 type Attestation = result.Attestation[Reference]
 
 type BuildFunc func(context.Context, Client) (*Result, error)
+type ExportFunc func(context.Context, Client) error
 
 func NewResult() *Result {
 	return &Result{}
@@ -32,6 +33,7 @@ type Client interface {
 	ResolveImageConfig(ctx context.Context, ref string, opt sourceresolver.Opt) (string, digest.Digest, []byte, error)
 	BuildOpts() BuildOpts
 	Inputs(ctx context.Context) (map[string]llb.State, error)
+	Export(ctx context.Context) (*Result, error)
 	NewContainer(ctx context.Context, req NewContainerRequest) (Container, error)
 	Warn(ctx context.Context, dgst digest.Digest, msg string, opts WarnOpts) error
 }

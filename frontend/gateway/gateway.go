@@ -427,7 +427,7 @@ func (lbf *llbBridgeForwarder) Result() (*frontend.Result, error) {
 	return lbf.result, nil
 }
 
-func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) LLBBridgeForwarder {
+func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) *llbBridgeForwarder {
 	return newBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
 }
 
@@ -449,13 +449,8 @@ func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 	return lbf
 }
 
-func ServeLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
-	return serveLLBBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
-}
-
-func serveLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
+func (lbf *llbBridgeForwarder) Serve(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancelCause(ctx)
-	lbf := newBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
 	serverOpt := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpcerrors.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcerrors.StreamServerInterceptor),
@@ -476,7 +471,13 @@ func serveLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLB
 		cancel(errors.WithStack(context.Canceled))
 	}()
 
-	return lbf, ctx
+	return ctx
+
+}
+
+func serveLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
+	lbf := newBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
+	return lbf, lbf.Serve(ctx)
 }
 
 type pipe struct {
@@ -1051,6 +1052,95 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 	}
 
 	return lbf.setResult(r, nil)
+}
+
+func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result) {
+	lbf.mu.Lock()
+	lbf.result = result
+	lbf.mu.Unlock()
+}
+
+func (lbf *llbBridgeForwarder) Export(ctx context.Context, in *pb.ExportRequest) (*pb.ExportResponse, error) {
+	res, err := lbf.Result()
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, errors.New("no result to export")
+	}
+
+	lbf.mu.Lock()
+	pbRes := &pb.Result{
+		Metadata: res.Metadata,
+	}
+
+	if res.Refs != nil {
+		ids := make(map[string]string, len(res.Refs))
+		defs := make(map[string]*opspb.Definition, len(res.Refs))
+		for k, ref := range res.Refs {
+			var id string
+			var def *opspb.Definition
+			if ref != nil {
+				id = identity.NewID()
+				def = ref.Definition()
+				lbf.refs[id] = ref
+			}
+			ids[k] = id
+			defs[k] = def
+		}
+
+		refMap := make(map[string]*pb.Ref, len(res.Refs))
+		for k, id := range ids {
+			refMap[k] = &pb.Ref{Id: id, Def: defs[k]}
+		}
+		pbRes.Result = &pb.Result_Refs{Refs: &pb.RefMap{Refs: refMap}}
+	} else {
+		ref := res.Ref
+		var id string
+		var def *opspb.Definition
+		if ref != nil {
+			id = identity.NewID()
+			def = ref.Definition()
+			lbf.refs[id] = ref
+		}
+
+		pbRes.Result = &pb.Result_Ref{Ref: &pb.Ref{Id: id, Def: def}}
+	}
+
+	if res.Attestations != nil {
+		pbRes.Attestations = map[string]*pb.Attestations{}
+		for k, atts := range res.Attestations {
+			for _, att := range atts {
+				pbAtt, err := gwclient.AttestationToPB(&att)
+				if err != nil {
+					lbf.mu.Unlock()
+					return nil, err
+				}
+				if pbAtt == nil { // XXX: kill this
+					continue
+				}
+
+				if att.Ref != nil {
+					id := identity.NewID()
+					def := att.Ref.Definition()
+					lbf.refs[id] = att.Ref
+					pbAtt.Ref = &pb.Ref{Id: id, Def: def}
+				}
+
+				if pbRes.Attestations[k] == nil {
+					pbRes.Attestations[k] = &pb.Attestations{}
+				}
+				pbRes.Attestations[k].Attestation = append(pbRes.Attestations[k].Attestation, pbAtt)
+			}
+		}
+	}
+
+	lbf.mu.Unlock()
+
+	resp := &pb.ExportResponse{
+		Result: pbRes,
+	}
+	return resp, nil
 }
 
 func (lbf *llbBridgeForwarder) Inputs(ctx context.Context, in *pb.InputsRequest) (*pb.InputsResponse, error) {

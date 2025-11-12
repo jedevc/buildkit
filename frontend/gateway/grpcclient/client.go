@@ -98,6 +98,14 @@ func convertRef(ref client.Reference) (*pb.Ref, error) {
 	return &pb.Ref{Id: r.id, Def: r.def}, nil
 }
 
+func NewFromEnvironment() (client.Client, error) {
+	client, err := current()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to initialize client from environment")
+	}
+	return client, nil
+}
+
 func RunFromEnvironment(ctx context.Context, f client.BuildFunc) error {
 	client, err := current()
 	if err != nil {
@@ -416,53 +424,63 @@ func (c *grpcClient) Solve(ctx context.Context, creq client.SolveRequest) (res *
 		return nil, err
 	}
 
-	res = client.NewResult()
 	if resp.Result == nil {
+		res = client.NewResult()
 		if id := resp.Ref; id != "" {
 			c.requests[id] = req
 		}
 		res.SetRef(&reference{id: resp.Ref, c: c})
 	} else {
-		res.Metadata = resp.Result.Metadata
-		switch pbRes := resp.Result.Result.(type) {
-		case *pb.Result_RefDeprecated:
-			if id := pbRes.RefDeprecated; id != "" {
-				res.SetRef(&reference{id: id, c: c})
-			}
-		case *pb.Result_RefsDeprecated:
-			for k, v := range pbRes.RefsDeprecated.Refs {
-				var ref client.Reference
-				if v != "" {
-					ref = &reference{id: v, c: c}
-				}
-				res.AddRef(k, ref)
-			}
-		case *pb.Result_Ref:
-			if pbRes.Ref.Id != "" {
-				res.SetRef(newReference(c, pbRes.Ref))
-			}
-		case *pb.Result_Refs:
-			for k, v := range pbRes.Refs.Refs {
-				var ref client.Reference
-				if v.Id != "" {
-					ref = newReference(c, v)
-				}
-				res.AddRef(k, ref)
-			}
+		res, err = c.clientResult(resp.Result)
+		if err != nil {
+			return nil, err
 		}
+	}
 
-		if resp.Result.Attestations != nil {
-			for p, as := range resp.Result.Attestations {
-				for _, a := range as.Attestation {
-					att, err := client.AttestationFromPB[client.Reference](a)
-					if err != nil {
-						return nil, err
-					}
-					if a.Ref.Id != "" {
-						att.Ref = newReference(c, a.Ref)
-					}
-					res.AddAttestation(p, *att)
+	return res, nil
+}
+
+func (c *grpcClient) clientResult(pbRes *pb.Result) (*client.Result, error) {
+	res := client.NewResult()
+	res.Metadata = pbRes.Metadata
+	switch pbRes := pbRes.Result.(type) {
+	case *pb.Result_RefDeprecated:
+		if id := pbRes.RefDeprecated; id != "" {
+			res.SetRef(&reference{id: id, c: c})
+		}
+	case *pb.Result_RefsDeprecated:
+		for k, v := range pbRes.RefsDeprecated.Refs {
+			var ref client.Reference
+			if v != "" {
+				ref = &reference{id: v, c: c}
+			}
+			res.AddRef(k, ref)
+		}
+	case *pb.Result_Ref:
+		if pbRes.Ref.Id != "" {
+			res.SetRef(newReference(c, pbRes.Ref))
+		}
+	case *pb.Result_Refs:
+		for k, v := range pbRes.Refs.Refs {
+			var ref client.Reference
+			if v.Id != "" {
+				ref = newReference(c, v)
+			}
+			res.AddRef(k, ref)
+		}
+	}
+
+	if pbRes.Attestations != nil {
+		for p, as := range pbRes.Attestations {
+			for _, a := range as.Attestation {
+				att, err := client.AttestationFromPB[client.Reference](a)
+				if err != nil {
+					return nil, err
 				}
+				if a.Ref.Id != "" {
+					att.Ref = newReference(c, a.Ref)
+				}
+				res.AddAttestation(p, *att)
 			}
 		}
 	}
@@ -751,6 +769,18 @@ func (c *grpcClient) Inputs(ctx context.Context) (map[string]llb.State, error) {
 		inputs[key] = llb.NewState(op)
 	}
 	return inputs, nil
+}
+
+func (c *grpcClient) Export(ctx context.Context) (*client.Result, error) {
+	result, err := c.client.Export(ctx, &pb.ExportRequest{})
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.clientResult(result.Result)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // procMessageForwarder is created per container process to act as the

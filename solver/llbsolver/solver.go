@@ -644,6 +644,10 @@ func (s *Solver) Solve(ctx context.Context, id string, sessionID string, req fro
 	if err != nil {
 		return nil, err
 	}
+	src := &exporter.Source{
+		Result:         inp,
+		FrontendResult: res,
+	}
 
 	// Functions that create new objects in containerd (eg. content blobs) need to have a lease to ensure
 	// that the object is not garbage collected immediately. This is protected by the indivual components,
@@ -664,7 +668,7 @@ func (s *Solver) Solve(ctx context.Context, id string, sessionID string, req fro
 	cacheExporters, inlineCacheExporter := splitCacheExporters(exp.CacheExporters)
 
 	if exp.EnableSessionExporter {
-		exporters, err := s.getSessionExporters(ctx, j.SessionID, len(exp.Exporters), inp, req)
+		exporters, err := s.getSessionExporters(ctx, j.SessionID, len(exp.Exporters), src, req)
 		if err != nil {
 			return nil, err
 		}
@@ -672,7 +676,7 @@ func (s *Solver) Solve(ctx context.Context, id string, sessionID string, req fro
 	}
 
 	var exporterResponse map[string]string
-	exporterResponse, descrefs, err = s.runExporters(ctx, exp.Exporters, inlineCacheExporter, j, br, br, cached, inp)
+	exporterResponse, descrefs, err = s.runExporters(ctx, exp.Exporters, inlineCacheExporter, j, br, br, cached, src)
 	if err != nil {
 		return nil, err
 	}
@@ -844,7 +848,7 @@ func runInlineCacheExporter(ctx context.Context, e exporter.ExporterInstance, in
 }
 
 func (s *Solver) runExporters(ctx context.Context, exporters []exporter.ExporterInstance, inlineCacheExporter inlineCacheExporter, job *solver.Job, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, cached *result.Result[solver.CachedResult], inp *exporter.Source) (exporterResponse map[string]string, descrefs []exporter.DescriptorReference, err error) {
-	warnings, err := verifier.CheckInvalidPlatforms(ctx, inp)
+	warnings, err := verifier.CheckInvalidPlatforms(ctx, inp.Result)
 	if err != nil {
 		return nil, nil, err
 	}

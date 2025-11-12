@@ -130,6 +130,10 @@ func (c *BridgeClient) Inputs(ctx context.Context) (map[string]llb.State, error)
 	return inputs, nil
 }
 
+func (c *BridgeClient) Export(ctx context.Context) (*client.Result, error) {
+	return c.Export(ctx)
+}
+
 func (c *BridgeClient) wrapSolveError(solveErr error) error {
 	var (
 		ee       *llberrdefs.ExecError

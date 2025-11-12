@@ -12,7 +12,20 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-type Source = result.Result[cache.ImmutableRef]
+type Source struct {
+	*result.Result[cache.ImmutableRef]
+	FrontendResult *frontend.Result
+}
+
+func (src *Source) Clone() *Source {
+	if src == nil {
+		return nil
+	}
+	return &Source{
+		Result:         src.Result.Clone(),
+		FrontendResult: src.FrontendResult.Clone(),
+	}
+}
 
 type Attestation = result.Attestation[cache.ImmutableRef]
 
