@@ -87,6 +87,8 @@ func resolveExporterDest(exporter, dest string, attrs map[string]string) (filesy
 		}
 		supportFile = tar
 		supportDir = !tar
+	case "gateway":
+		supportFile = true
 	}
 
 	if supportDir {

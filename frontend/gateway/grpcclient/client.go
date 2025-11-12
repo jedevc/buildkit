@@ -74,17 +74,22 @@ func New(ctx context.Context, opts map[string]string, session, product string, c
 	}, nil
 }
 
-func current() (GrpcClient, error) {
+func current() (GrpcClient, *grpc.ClientConn, error) {
 	if ep := product(); ep != "" {
 		apicaps.ExportedProduct = ep
 	}
 
 	ctx, conn, err := grpcClientConn(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return New(ctx, opts(), sessionID(), product(), pb.NewLLBBridgeClient(conn), workers())
+	gc, err := New(ctx, opts(), sessionID(), product(), pb.NewLLBBridgeClient(conn), workers())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return gc, conn, nil
 }
 
 func convertRef(ref client.Reference) (*pb.Ref, error) {
@@ -98,16 +103,16 @@ func convertRef(ref client.Reference) (*pb.Ref, error) {
 	return &pb.Ref{Id: r.id, Def: r.def}, nil
 }
 
-func NewFromEnvironment() (client.Client, error) {
-	client, err := current()
+func NewFromEnvironment() (client.Client, *grpc.ClientConn, error) {
+	client, conn, err := current()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to initialize client from environment")
+		return nil, conn, errors.Wrapf(err, "failed to initialize client from environment")
 	}
-	return client, nil
+	return client, conn, nil
 }
 
 func RunFromEnvironment(ctx context.Context, f client.BuildFunc) error {
-	client, err := current()
+	client, _, err := current()
 	if err != nil {
 		return errors.Wrapf(err, "failed to initialize client from environment")
 	}

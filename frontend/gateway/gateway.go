@@ -449,7 +449,7 @@ func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 	return lbf
 }
 
-func (lbf *llbBridgeForwarder) Serve(ctx context.Context) context.Context {
+func (lbf *llbBridgeForwarder) Serve(ctx context.Context, attachables ...session.Attachable) context.Context {
 	ctx, cancel := context.WithCancelCause(ctx)
 	serverOpt := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpcerrors.UnaryServerInterceptor),
@@ -460,6 +460,9 @@ func (lbf *llbBridgeForwarder) Serve(ctx context.Context) context.Context {
 	server := grpc.NewServer(serverOpt...)
 	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
 	pb.RegisterLLBBridgeServer(server, lbf)
+	for _, a := range attachables {
+		a.Register(server)
+	}
 
 	go func() {
 		serve(ctx, server, lbf.conn)

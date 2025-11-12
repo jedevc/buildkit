@@ -275,9 +275,14 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	// 	}
 	// }
 
+	caller, err := e.opt.SessionManager.Get(ctx, sessionID, false)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
 	lbf.SetResult(src.FrontendResult)
-	ctx = lbf.Serve(ctx)
+	ctx = lbf.Serve(ctx, &SyncTarget{Caller: caller, ExporterID: e.id})
 	// defer lbf.conn.Close() // XXX:
 	defer lbf.Discard()
 
@@ -320,7 +325,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 		// lbf.mu.Unlock()
 	}
 
-	return nil, nil, fmt.Errorf("not implemented but ran")
+	// return nil, nil, fmt.Errorf("not implemented but ran")
 
 	return nil, nil, nil
 }

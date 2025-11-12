@@ -168,6 +168,8 @@ func (c *Client) solve(ctx context.Context, def *llb.Definition, runGateway runG
 				if supportFile && supportStore {
 					return nil, errors.Errorf("both file and store output is not supported by %s exporter", ex.Type)
 				}
+			case "gateway":
+				supportFile = true
 			}
 			if !supportFile && ex.Output != nil {
 				return nil, errors.Errorf("output file writer is not supported by %s exporter", ex.Type)

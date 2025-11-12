@@ -15,7 +15,7 @@ First:
 - [x] Have it operate on one of the inputs. "solve" it, and then use the resulting ref as the root for the exporter.
   - wrap and forbid Solve calls
 - [ ] Allow passing options to the gateway exporter
-- [ ] Allow writing to a local file / directory
+- [x] Allow writing to a local file / directory
   - [ ] Need to extend the gateway api to allow for this...
 - [ ] Add a mechanism for reading blobs
 - [ ] Allow passing credentials

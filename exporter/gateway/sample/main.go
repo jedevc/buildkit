@@ -8,26 +8,29 @@ import (
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
+	"github.com/moby/buildkit/session/filesync"
 	"github.com/moby/buildkit/util/appcontext"
 	"github.com/moby/buildkit/util/bklog"
 	_ "github.com/moby/buildkit/util/grpcutil/encoding/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	client, err := grpcclient.NewFromEnvironment()
+	client, conn, err := grpcclient.NewFromEnvironment()
 	if err != nil {
 		bklog.L.Errorf("fatal error: %+v", err)
 		panic(err)
 	}
-	err = export(appcontext.Context(), client)
+
+	err = export(appcontext.Context(), client, conn)
 	if err != nil {
 		bklog.L.Errorf("fatal error: %+v", err)
 		panic(err)
 	}
 }
 
-func export(ctx context.Context, c client.Client) (err error) {
+func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err error) {
 	result, err := c.Export(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get export")
@@ -53,12 +56,27 @@ func export(ctx context.Context, c client.Client) (err error) {
 		return errors.Wrap(err, "failed to read dir")
 	}
 
+	client := filesync.NewFileSendClient(conn)
+	cc, err := client.DiffCopy(ctx)
+	if err != nil {
+		return err
+	}
+	w := filesync.NewStreamWriter(cc)
+
 	for _, fi := range stats {
 		path := fi.Path
 		if fi.IsDir() {
 			path += "/"
 		}
 		fmt.Fprintln(os.Stderr, path)
+		_, err = fmt.Fprintln(w, path)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		return err
 	}
 
 	return nil

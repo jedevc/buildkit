@@ -21,6 +21,10 @@ type Stream interface {
 	RecvMsg(m any) error
 }
 
+func NewStreamWriter(stream grpc.ClientStream) io.WriteCloser {
+	return newStreamWriter(stream)
+}
+
 func newStreamWriter(stream grpc.ClientStream) io.WriteCloser {
 	wc := &streamWriterCloser{ClientStream: stream}
 	return &bufferedWriteCloser{Writer: bufio.NewWriter(wc), Closer: wc}
