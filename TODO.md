@@ -15,7 +15,7 @@ First:
 - [x] Have it operate on one of the inputs. "solve" it, and then use the resulting ref as the root for the exporter.
 - [x] Allow passing options to the gateway exporter
 - [x] Allow writing to a local file / directory
-- [ ] Add a mechanism for reading blobs
+- [x] Add a mechanism for reading blobs
 - [ ] Allow passing credentials
 
 Next:

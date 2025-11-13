@@ -30,6 +30,7 @@ const (
 	LLBBridge_Return_FullMethodName             = "/moby.buildkit.v1.frontend.LLBBridge/Return"
 	LLBBridge_Inputs_FullMethodName             = "/moby.buildkit.v1.frontend.LLBBridge/Inputs"
 	LLBBridge_Export_FullMethodName             = "/moby.buildkit.v1.frontend.LLBBridge/Export"
+	LLBBridge_Remote_FullMethodName             = "/moby.buildkit.v1.frontend.LLBBridge/Remote"
 	LLBBridge_NewContainer_FullMethodName       = "/moby.buildkit.v1.frontend.LLBBridge/NewContainer"
 	LLBBridge_ReleaseContainer_FullMethodName   = "/moby.buildkit.v1.frontend.LLBBridge/ReleaseContainer"
 	LLBBridge_ExecProcess_FullMethodName        = "/moby.buildkit.v1.frontend.LLBBridge/ExecProcess"
@@ -59,6 +60,7 @@ type LLBBridgeClient interface {
 	// apicaps:CapFrontendInputs
 	Inputs(ctx context.Context, in *InputsRequest, opts ...grpc.CallOption) (*InputsResponse, error)
 	Export(ctx context.Context, in *ExportRequest, opts ...grpc.CallOption) (*ExportResponse, error)
+	Remote(ctx context.Context, in *RemoteRequest, opts ...grpc.CallOption) (*RemoteResponse, error)
 	NewContainer(ctx context.Context, in *NewContainerRequest, opts ...grpc.CallOption) (*NewContainerResponse, error)
 	ReleaseContainer(ctx context.Context, in *ReleaseContainerRequest, opts ...grpc.CallOption) (*ReleaseContainerResponse, error)
 	ExecProcess(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecMessage, ExecMessage], error)
@@ -184,6 +186,16 @@ func (c *lLBBridgeClient) Export(ctx context.Context, in *ExportRequest, opts ..
 	return out, nil
 }
 
+func (c *lLBBridgeClient) Remote(ctx context.Context, in *RemoteRequest, opts ...grpc.CallOption) (*RemoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoteResponse)
+	err := c.cc.Invoke(ctx, LLBBridge_Remote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *lLBBridgeClient) NewContainer(ctx context.Context, in *NewContainerRequest, opts ...grpc.CallOption) (*NewContainerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NewContainerResponse)
@@ -250,6 +262,7 @@ type LLBBridgeServer interface {
 	// apicaps:CapFrontendInputs
 	Inputs(context.Context, *InputsRequest) (*InputsResponse, error)
 	Export(context.Context, *ExportRequest) (*ExportResponse, error)
+	Remote(context.Context, *RemoteRequest) (*RemoteResponse, error)
 	NewContainer(context.Context, *NewContainerRequest) (*NewContainerResponse, error)
 	ReleaseContainer(context.Context, *ReleaseContainerRequest) (*ReleaseContainerResponse, error)
 	ExecProcess(grpc.BidiStreamingServer[ExecMessage, ExecMessage]) error
@@ -296,6 +309,9 @@ func (UnimplementedLLBBridgeServer) Inputs(context.Context, *InputsRequest) (*In
 }
 func (UnimplementedLLBBridgeServer) Export(context.Context, *ExportRequest) (*ExportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Export not implemented")
+}
+func (UnimplementedLLBBridgeServer) Remote(context.Context, *RemoteRequest) (*RemoteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Remote not implemented")
 }
 func (UnimplementedLLBBridgeServer) NewContainer(context.Context, *NewContainerRequest) (*NewContainerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewContainer not implemented")
@@ -527,6 +543,24 @@ func _LLBBridge_Export_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LLBBridge_Remote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LLBBridgeServer).Remote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LLBBridge_Remote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LLBBridgeServer).Remote(ctx, req.(*RemoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LLBBridge_NewContainer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NewContainerRequest)
 	if err := dec(in); err != nil {
@@ -638,6 +672,10 @@ var LLBBridge_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Export",
 			Handler:    _LLBBridge_Export_Handler,
+		},
+		{
+			MethodName: "Remote",
+			Handler:    _LLBBridge_Remote_Handler,
 		},
 		{
 			MethodName: "NewContainer",

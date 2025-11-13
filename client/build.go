@@ -163,6 +163,11 @@ func (g *gatewayClientForBuild) Export(ctx context.Context, in *gatewayapi.Expor
 	return g.gateway.Export(ctx, in, opts...)
 }
 
+func (g *gatewayClientForBuild) Remote(ctx context.Context, in *gatewayapi.RemoteRequest, opts ...grpc.CallOption) (*gatewayapi.RemoteResponse, error) {
+	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
+	return g.gateway.Remote(ctx, in, opts...)
+}
+
 func (g *gatewayClientForBuild) NewContainer(ctx context.Context, in *gatewayapi.NewContainerRequest, opts ...grpc.CallOption) (*gatewayapi.NewContainerResponse, error) {
 	if g.caps != nil {
 		if err := g.caps.Supports(gatewayapi.CapGatewayExec); err != nil {

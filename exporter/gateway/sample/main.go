@@ -1,10 +1,14 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"os"
 
+	"github.com/containerd/containerd/v2/core/content/proxy"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
@@ -59,6 +63,40 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err er
 
 	if result.Ref == nil {
 		return errors.New("no ref in export result")
+	}
+	descs, err := result.Ref.Remote(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get remote descs")
+	}
+	fmt.Fprintln(os.Stderr, "exported descriptor:", descs)
+
+	ccl := proxy.NewContentStore(conn)
+	for _, desc := range descs {
+		r, err := ccl.ReaderAt(ctx, desc)
+		if err != nil {
+			return errors.Wrap(err, "failed to get reader for exported content")
+		}
+		defer r.Close()
+
+		sr := io.NewSectionReader(r, 0, r.Size())
+		rr, err := gzip.NewReader(sr)
+		if err != nil {
+			return errors.Wrap(err, "failed to create gzip reader")
+		}
+		tr := tar.NewReader(rr)
+
+		for {
+			hdr, err := tr.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return errors.Wrap(err, "failed to read tar header")
+			}
+			fmt.Fprintln(os.Stderr, "exported file:", hdr.Name)
+		}
+
+		r.Close()
 	}
 
 	stats, err := result.Ref.ReadDir(ctx, client.ReadDirRequest{Path: subdir})

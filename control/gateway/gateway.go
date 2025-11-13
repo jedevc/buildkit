@@ -164,6 +164,14 @@ func (gwf *GatewayForwarder) Export(ctx context.Context, req *gwapi.ExportReques
 	return fwd.Export(ctx, req)
 }
 
+func (gwf *GatewayForwarder) Remote(ctx context.Context, req *gwapi.RemoteRequest) (*gwapi.RemoteResponse, error) {
+	fwd, err := gwf.lookupForwarder(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "forwarding Remote")
+	}
+	return fwd.Remote(ctx, req)
+}
+
 func (gwf *GatewayForwarder) ReadDir(ctx context.Context, req *gwapi.ReadDirRequest) (*gwapi.ReadDirResponse, error) {
 	fwd, err := gwf.lookupForwarder(ctx)
 	if err != nil {

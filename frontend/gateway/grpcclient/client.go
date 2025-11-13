@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"os"
 	"strings"
@@ -436,7 +435,7 @@ func (c *grpcClient) Solve(ctx context.Context, creq client.SolveRequest) (res *
 		}
 		res.SetRef(&reference{id: resp.Ref, c: c})
 	} else {
-		res, err = c.clientResult(resp.Result)
+		res, err = c.loadResult(resp.Result)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +444,7 @@ func (c *grpcClient) Solve(ctx context.Context, creq client.SolveRequest) (res *
 	return res, nil
 }
 
-func (c *grpcClient) clientResult(pbRes *pb.Result) (*client.Result, error) {
+func (c *grpcClient) loadResult(pbRes *pb.Result) (*client.Result, error) {
 	res := client.NewResult()
 	res.Metadata = pbRes.Metadata
 	switch pbRes := pbRes.Result.(type) {
@@ -614,25 +613,13 @@ func imgResponseFromPB(resp *pb.ResolveSourceImageResponse) *sourceresolver.Reso
 		}
 		for k, v := range resp.AttestationChain.Blobs {
 			ac.Blobs[digest.Digest(k)] = sourceresolver.Blob{
-				Descriptor: descriptorFromPB(v.GetDescriptor_()),
+				Descriptor: pb.DescriptorFromPB(v.GetDescriptor_()),
 				Data:       v.Data,
 			}
 		}
 		r.AttestationChain = ac
 	}
 	return r
-}
-
-func descriptorFromPB(pbDesc *pb.Descriptor) ocispecs.Descriptor {
-	if pbDesc == nil {
-		return ocispecs.Descriptor{}
-	}
-	return ocispecs.Descriptor{
-		MediaType:   pbDesc.GetMediaType(),
-		Size:        pbDesc.GetSize(),
-		Digest:      digest.Digest(pbDesc.GetDigest()),
-		Annotations: maps.Clone(pbDesc.GetAnnotations()),
-	}
 }
 
 func (c *grpcClient) resolveImageConfigViaSourceMetadata(ctx context.Context, ref string, opt sourceresolver.Opt, p *opspb.Platform) (string, digest.Digest, []byte, error) {
@@ -781,7 +768,7 @@ func (c *grpcClient) Export(ctx context.Context) (*client.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := c.clientResult(result.Result)
+	res, err := c.loadResult(result.Result)
 	if err != nil {
 		return nil, err
 	}
@@ -1355,6 +1342,18 @@ func (r *reference) StatFile(ctx context.Context, req client.StatRequest) (*fsty
 		return nil, err
 	}
 	return resp.Stat, nil
+}
+
+func (r *reference) Remote(ctx context.Context) ([]ocispecs.Descriptor, error) {
+	resp, err := r.c.client.Remote(ctx, &pb.RemoteRequest{Ref: r.id})
+	if err != nil {
+		return nil, err
+	}
+	descs := make([]ocispecs.Descriptor, len(resp.Descriptors))
+	for i, d := range resp.Descriptors {
+		descs[i] = pb.DescriptorFromPB(d)
+	}
+	return descs, nil
 }
 
 func grpcClientConn(ctx context.Context) (context.Context, *grpc.ClientConn, error) {

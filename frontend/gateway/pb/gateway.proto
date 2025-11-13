@@ -32,6 +32,7 @@ service LLBBridge {
 	// apicaps:CapFrontendInputs
 	rpc Inputs(InputsRequest) returns (InputsResponse);
 	rpc Export(ExportRequest) returns (ExportResponse);
+	rpc Remote(RemoteRequest) returns (RemoteResponse);
 
 	rpc NewContainer(NewContainerRequest) returns (NewContainerResponse);
 	rpc ReleaseContainer(ReleaseContainerRequest) returns (ReleaseContainerResponse);
@@ -112,6 +113,14 @@ message ExportRequest {
 
 message ExportResponse {
 	Result result = 1;
+}
+
+message RemoteRequest {
+	string Ref = 1;
+}
+
+message RemoteResponse {
+	repeated Descriptor descriptors = 1;
 }
 
 message InputsRequest {

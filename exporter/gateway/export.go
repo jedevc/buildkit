@@ -282,7 +282,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 
 	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
 	lbf.SetResult(src.FrontendResult)
-	ctx = lbf.Serve(ctx, &SyncTarget{Caller: caller, ExporterID: e.id})
+	ctx = lbf.Serve(ctx, &SyncTarget{Caller: caller, ExporterID: e.id}, &Store{e.opt.ImageWriter.ContentStore()})
 	// defer lbf.conn.Close() // XXX:
 	defer lbf.Discard()
 

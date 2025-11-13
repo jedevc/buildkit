@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/moby/buildkit/cache"
+	"github.com/moby/buildkit/cache/config"
 	cacheutil "github.com/moby/buildkit/cache/util"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
@@ -21,8 +23,10 @@ import (
 	opspb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/apicaps"
+	"github.com/moby/buildkit/util/compression"
 	"github.com/moby/buildkit/worker"
 	digest "github.com/opencontainers/go-digest"
+	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	fstypes "github.com/tonistiigi/fsutil/types"
 	"golang.org/x/sync/errgroup"
@@ -383,6 +387,33 @@ func (r *ref) StatFile(ctx context.Context, req client.StatRequest) (*fstypes.St
 		return nil, err
 	}
 	return cacheutil.StatFile(ctx, m, req.Path)
+}
+
+func (r *ref) Remote(ctx context.Context) ([]ocispecs.Descriptor, error) {
+	rr, err := r.resultProxy.Result(ctx)
+	if err != nil {
+		return nil, r.c.wrapSolveError(err)
+	}
+	ref, ok := rr.Sys().(*worker.WorkerRef)
+	if !ok {
+		return nil, errors.Errorf("invalid ref: %T", rr.Sys())
+	}
+
+	rc := config.RefConfig{
+		Compression: compression.New(compression.Default),
+	}
+	remotes, err := ref.ImmutableRef.GetRemotes(ctx, true, rc, false, session.NewGroup(r.c.sid))
+	if err != nil {
+		return nil, err
+	}
+	remote := remotes[0]
+	if unlazier, ok := remote.Provider.(cache.Unlazier); ok {
+		if err := unlazier.Unlazy(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	return remote.Descriptors, nil
 }
 
 func (r *ref) getMountable(ctx context.Context) (snapshot.Mountable, error) {

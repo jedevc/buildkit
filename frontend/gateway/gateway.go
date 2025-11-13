@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	apitypes "github.com/moby/buildkit/api/types"
 	"github.com/moby/buildkit/cache"
+	"github.com/moby/buildkit/cache/config"
 	cacheutil "github.com/moby/buildkit/cache/util"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
@@ -42,6 +43,7 @@ import (
 	opspb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/buildkit/util/bklog"
+	"github.com/moby/buildkit/util/compression"
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/moby/buildkit/util/stack"
 	"github.com/moby/buildkit/util/tracing"
@@ -1000,11 +1002,19 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 			Details: in.Error.Details,
 		})))
 	}
-	r := &frontend.Result{
-		Metadata: in.Result.Metadata,
-	}
 
-	switch res := in.Result.Result.(type) {
+	r, err := lbf.loadResult(in.Result)
+	if err != nil {
+		return nil, err
+	}
+	return lbf.setResult(r, nil)
+}
+
+func (lbf *llbBridgeForwarder) loadResult(pbRes *pb.Result) (*frontend.Result, error) {
+	r := &frontend.Result{
+		Metadata: pbRes.Metadata,
+	}
+	switch res := pbRes.Result.(type) {
 	case *pb.Result_RefDeprecated:
 		ref, err := lbf.cloneRef(res.RefDeprecated)
 		if err != nil {
@@ -1035,8 +1045,8 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 		}
 	}
 
-	if in.Result.Attestations != nil {
-		for k, pbAtts := range in.Result.Attestations {
+	if pbRes.Attestations != nil {
+		for k, pbAtts := range pbRes.Attestations {
 			for _, pbAtt := range pbAtts.Attestation {
 				att, err := gwclient.AttestationFromPB[solver.ResultProxy](pbAtt)
 				if err != nil {
@@ -1054,7 +1064,7 @@ func (lbf *llbBridgeForwarder) Return(ctx context.Context, in *pb.ReturnRequest)
 		}
 	}
 
-	return lbf.setResult(r, nil)
+	return r, nil
 }
 
 func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result) {
@@ -1142,6 +1152,35 @@ func (lbf *llbBridgeForwarder) Export(ctx context.Context, in *pb.ExportRequest)
 
 	resp := &pb.ExportResponse{
 		Result: pbRes,
+	}
+	return resp, nil
+}
+
+func (lbf *llbBridgeForwarder) Remote(ctx context.Context, in *pb.RemoteRequest) (*pb.RemoteResponse, error) {
+	r, err := lbf.getImmutableRef(ctx, in.Ref)
+	if err != nil {
+		return nil, err
+	}
+
+	rc := config.RefConfig{
+		Compression: compression.New(compression.Default),
+	}
+	remotes, err := r.GetRemotes(ctx, true, rc, false, session.NewGroup(lbf.sid))
+	if err != nil {
+		return nil, err
+	}
+	remote := remotes[0]
+	if unlazier, ok := remote.Provider.(cache.Unlazier); ok {
+		if err := unlazier.Unlazy(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	resp := &pb.RemoteResponse{
+		Descriptors: make([]*pb.Descriptor, 0, len(remote.Descriptors)),
+	}
+	for _, desc := range remote.Descriptors {
+		resp.Descriptors = append(resp.Descriptors, pb.DescriptorToPB(desc))
 	}
 	return resp, nil
 }
@@ -1770,13 +1809,8 @@ func toPBAttestationChain(ac *sourceresolver.AttestationChain) *pb.AttestationCh
 	}
 	for k, v := range ac.Blobs {
 		out.Blobs[k.String()] = &pb.Blob{
-			Descriptor_: &pb.Descriptor{
-				MediaType:   v.Descriptor.MediaType,
-				Size:        v.Descriptor.Size,
-				Digest:      string(v.Descriptor.Digest),
-				Annotations: maps.Clone(v.Descriptor.Annotations),
-			},
-			Data: v.Data,
+			Descriptor_: pb.DescriptorToPB(v.Descriptor),
+			Data:        v.Data,
 		}
 	}
 	return out

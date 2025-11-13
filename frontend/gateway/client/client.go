@@ -106,6 +106,7 @@ type Reference interface {
 	ReadFile(ctx context.Context, req ReadRequest) ([]byte, error)
 	StatFile(ctx context.Context, req StatRequest) (*fstypes.Stat, error)
 	ReadDir(ctx context.Context, req ReadDirRequest) ([]*fstypes.Stat, error)
+	Remote(ctx context.Context) ([]ocispecs.Descriptor, error)
 }
 
 type ReadRequest struct {
