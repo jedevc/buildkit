@@ -134,10 +134,6 @@ func (c *BridgeClient) Inputs(ctx context.Context) (map[string]llb.State, error)
 	return inputs, nil
 }
 
-func (c *BridgeClient) Export(ctx context.Context) (*client.Result, error) {
-	return c.Export(ctx)
-}
-
 func (c *BridgeClient) wrapSolveError(solveErr error) error {
 	var (
 		ee       *llberrdefs.ExecError
@@ -389,7 +385,7 @@ func (r *ref) StatFile(ctx context.Context, req client.StatRequest) (*fstypes.St
 	return cacheutil.StatFile(ctx, m, req.Path)
 }
 
-func (r *ref) Remote(ctx context.Context) ([]ocispecs.Descriptor, error) {
+func (r *ref) GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error) {
 	rr, err := r.resultProxy.Result(ctx)
 	if err != nil {
 		return nil, r.c.wrapSolveError(err)

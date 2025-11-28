@@ -1073,7 +1073,7 @@ func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result) {
 	lbf.mu.Unlock()
 }
 
-func (lbf *llbBridgeForwarder) Export(ctx context.Context, in *pb.ExportRequest) (*pb.ExportResponse, error) {
+func (lbf *llbBridgeForwarder) GetReturn(ctx context.Context, in *pb.GetReturnRequest) (*pb.GetReturnResponse, error) {
 	res, err := lbf.Result()
 	if err != nil {
 		return nil, err
@@ -1150,18 +1150,19 @@ func (lbf *llbBridgeForwarder) Export(ctx context.Context, in *pb.ExportRequest)
 
 	lbf.mu.Unlock()
 
-	resp := &pb.ExportResponse{
+	resp := &pb.GetReturnResponse{
 		Result: pbRes,
 	}
 	return resp, nil
 }
 
-func (lbf *llbBridgeForwarder) Remote(ctx context.Context, in *pb.RemoteRequest) (*pb.RemoteResponse, error) {
+func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRequest) (*pb.GetRemoteResponse, error) {
 	r, err := lbf.getImmutableRef(ctx, in.Ref)
 	if err != nil {
 		return nil, err
 	}
 
+	// XXX: load from in
 	rc := config.RefConfig{
 		Compression: compression.New(compression.Default),
 	}
@@ -1176,7 +1177,7 @@ func (lbf *llbBridgeForwarder) Remote(ctx context.Context, in *pb.RemoteRequest)
 		}
 	}
 
-	resp := &pb.RemoteResponse{
+	resp := &pb.GetRemoteResponse{
 		Descriptors: make([]*pb.Descriptor, 0, len(remote.Descriptors)),
 	}
 	for _, desc := range remote.Descriptors {

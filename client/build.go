@@ -56,7 +56,7 @@ func (c *Client) Build(ctx context.Context, opt SolveOpt, product string, buildF
 		caps := g.BuildOpts().Caps
 		gwClient.caps = &caps
 
-		if err := g.Run(ctx, buildFunc); err != nil {
+		if err := g.Build(ctx, buildFunc); err != nil {
 			return errors.Wrap(err, "failed to run Build function")
 		}
 		return nil
@@ -138,6 +138,11 @@ func (g *gatewayClientForBuild) Evaluate(ctx context.Context, in *gatewayapi.Eva
 	return g.gateway.Evaluate(ctx, in, opts...)
 }
 
+func (g *gatewayClientForBuild) GetRemote(ctx context.Context, in *gatewayapi.GetRemoteRequest, opts ...grpc.CallOption) (*gatewayapi.GetRemoteResponse, error) {
+	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
+	return g.gateway.GetRemote(ctx, in, opts...)
+}
+
 func (g *gatewayClientForBuild) Ping(ctx context.Context, in *gatewayapi.PingRequest, opts ...grpc.CallOption) (*gatewayapi.PongResponse, error) {
 	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
 	return g.gateway.Ping(ctx, in, opts...)
@@ -148,6 +153,11 @@ func (g *gatewayClientForBuild) Return(ctx context.Context, in *gatewayapi.Retur
 	return g.gateway.Return(ctx, in, opts...)
 }
 
+func (g *gatewayClientForBuild) GetReturn(ctx context.Context, in *gatewayapi.GetReturnRequest, opts ...grpc.CallOption) (*gatewayapi.GetReturnResponse, error) {
+	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
+	return g.gateway.GetReturn(ctx, in, opts...)
+}
+
 func (g *gatewayClientForBuild) Inputs(ctx context.Context, in *gatewayapi.InputsRequest, opts ...grpc.CallOption) (*gatewayapi.InputsResponse, error) {
 	if g.caps != nil {
 		if err := g.caps.Supports(gatewayapi.CapFrontendInputs); err != nil {
@@ -156,16 +166,6 @@ func (g *gatewayClientForBuild) Inputs(ctx context.Context, in *gatewayapi.Input
 	}
 	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
 	return g.gateway.Inputs(ctx, in, opts...)
-}
-
-func (g *gatewayClientForBuild) Export(ctx context.Context, in *gatewayapi.ExportRequest, opts ...grpc.CallOption) (*gatewayapi.ExportResponse, error) {
-	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
-	return g.gateway.Export(ctx, in, opts...)
-}
-
-func (g *gatewayClientForBuild) Remote(ctx context.Context, in *gatewayapi.RemoteRequest, opts ...grpc.CallOption) (*gatewayapi.RemoteResponse, error) {
-	ctx = buildid.AppendToOutgoingContext(ctx, g.buildID)
-	return g.gateway.Remote(ctx, in, opts...)
 }
 
 func (g *gatewayClientForBuild) NewContainer(ctx context.Context, in *gatewayapi.NewContainerRequest, opts ...grpc.CallOption) (*gatewayapi.NewContainerResponse, error) {

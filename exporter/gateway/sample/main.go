@@ -21,28 +21,13 @@ import (
 )
 
 func main() {
-	client, conn, err := grpcclient.NewFromEnvironment()
-	if err != nil {
-		bklog.L.Errorf("fatal error: %+v", err)
-		panic(err)
-	}
-
-	err = export(appcontext.Context(), client, conn)
-	if err != nil {
+	if err := grpcclient.ExportFromEnvironment(appcontext.Context(), export); err != nil {
 		bklog.L.Errorf("fatal error: %+v", err)
 		panic(err)
 	}
 }
 
-func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err error) {
-	result, err := c.Export(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get export")
-	}
-	if result == nil {
-		return errors.New("no export result")
-	}
-
+func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, result *client.Result) (err error) {
 	opts := c.BuildOpts().Opts
 	if opts == nil {
 		opts = map[string]string{}
@@ -64,7 +49,7 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn) (err er
 	if result.Ref == nil {
 		return errors.New("no ref in export result")
 	}
-	descs, err := result.Ref.Remote(ctx)
+	descs, err := result.Ref.GetRemote(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get remote descs")
 	}

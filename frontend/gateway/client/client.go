@@ -14,6 +14,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	fstypes "github.com/tonistiigi/fsutil/types"
+	"google.golang.org/grpc"
 )
 
 type Result = result.Result[Reference]
@@ -21,7 +22,9 @@ type Result = result.Result[Reference]
 type Attestation = result.Attestation[Reference]
 
 type BuildFunc func(context.Context, Client) (*Result, error)
-type ExportFunc func(context.Context, Client) error
+
+// XXX: weird that grpc is here
+type ExportFunc func(context.Context, Client, *grpc.ClientConn, *Result) error
 
 func NewResult() *Result {
 	return &Result{}
@@ -33,7 +36,6 @@ type Client interface {
 	ResolveImageConfig(ctx context.Context, ref string, opt sourceresolver.Opt) (string, digest.Digest, []byte, error)
 	BuildOpts() BuildOpts
 	Inputs(ctx context.Context) (map[string]llb.State, error)
-	Export(ctx context.Context) (*Result, error)
 	NewContainer(ctx context.Context, req NewContainerRequest) (Container, error)
 	Warn(ctx context.Context, dgst digest.Digest, msg string, opts WarnOpts) error
 }
@@ -106,7 +108,9 @@ type Reference interface {
 	ReadFile(ctx context.Context, req ReadRequest) ([]byte, error)
 	StatFile(ctx context.Context, req StatRequest) (*fstypes.Stat, error)
 	ReadDir(ctx context.Context, req ReadDirRequest) ([]*fstypes.Stat, error)
-	Remote(ctx context.Context) ([]ocispecs.Descriptor, error)
+
+	// XXX: this is only for exporting, should be moved out
+	GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error)
 }
 
 type ReadRequest struct {

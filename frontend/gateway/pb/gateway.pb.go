@@ -120,6 +120,58 @@ func (InTotoSubjectKind) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{1}
 }
 
+type Compression_Type int32
+
+const (
+	Compression_NONE    Compression_Type = 0
+	Compression_GZIP    Compression_Type = 1
+	Compression_ESTARGZ Compression_Type = 2
+	Compression_ZSTD    Compression_Type = 3
+)
+
+// Enum value maps for Compression_Type.
+var (
+	Compression_Type_name = map[int32]string{
+		0: "NONE",
+		1: "GZIP",
+		2: "ESTARGZ",
+		3: "ZSTD",
+	}
+	Compression_Type_value = map[string]int32{
+		"NONE":    0,
+		"GZIP":    1,
+		"ESTARGZ": 2,
+		"ZSTD":    3,
+	}
+)
+
+func (x Compression_Type) Enum() *Compression_Type {
+	p := new(Compression_Type)
+	*p = x
+	return p
+}
+
+func (x Compression_Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Compression_Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_enumTypes[2].Descriptor()
+}
+
+func (Compression_Type) Type() protoreflect.EnumType {
+	return &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_enumTypes[2]
+}
+
+func (x Compression_Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Compression_Type.Descriptor instead.
+func (Compression_Type) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{55, 0}
+}
+
 type Result struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Result:
@@ -668,26 +720,26 @@ func (*ReturnResponse) Descriptor() ([]byte, []int) {
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{8}
 }
 
-type ExportRequest struct {
+type GetReturnRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExportRequest) Reset() {
-	*x = ExportRequest{}
+func (x *GetReturnRequest) Reset() {
+	*x = GetReturnRequest{}
 	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ExportRequest) String() string {
+func (x *GetReturnRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ExportRequest) ProtoMessage() {}
+func (*GetReturnRequest) ProtoMessage() {}
 
-func (x *ExportRequest) ProtoReflect() protoreflect.Message {
+func (x *GetReturnRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -699,32 +751,32 @@ func (x *ExportRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExportRequest.ProtoReflect.Descriptor instead.
-func (*ExportRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetReturnRequest.ProtoReflect.Descriptor instead.
+func (*GetReturnRequest) Descriptor() ([]byte, []int) {
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{9}
 }
 
-type ExportResponse struct {
+type GetReturnResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Result        *Result                `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExportResponse) Reset() {
-	*x = ExportResponse{}
+func (x *GetReturnResponse) Reset() {
+	*x = GetReturnResponse{}
 	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ExportResponse) String() string {
+func (x *GetReturnResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ExportResponse) ProtoMessage() {}
+func (*GetReturnResponse) ProtoMessage() {}
 
-func (x *ExportResponse) ProtoReflect() protoreflect.Message {
+func (x *GetReturnResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -736,102 +788,14 @@ func (x *ExportResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExportResponse.ProtoReflect.Descriptor instead.
-func (*ExportResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetReturnResponse.ProtoReflect.Descriptor instead.
+func (*GetReturnResponse) Descriptor() ([]byte, []int) {
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *ExportResponse) GetResult() *Result {
+func (x *GetReturnResponse) GetResult() *Result {
 	if x != nil {
 		return x.Result
-	}
-	return nil
-}
-
-type RemoteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           string                 `protobuf:"bytes,1,opt,name=Ref,proto3" json:"Ref,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoteRequest) Reset() {
-	*x = RemoteRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoteRequest) ProtoMessage() {}
-
-func (x *RemoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoteRequest.ProtoReflect.Descriptor instead.
-func (*RemoteRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *RemoteRequest) GetRef() string {
-	if x != nil {
-		return x.Ref
-	}
-	return ""
-}
-
-type RemoteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Descriptors   []*Descriptor          `protobuf:"bytes,1,rep,name=descriptors,proto3" json:"descriptors,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoteResponse) Reset() {
-	*x = RemoteResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoteResponse) ProtoMessage() {}
-
-func (x *RemoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoteResponse.ProtoReflect.Descriptor instead.
-func (*RemoteResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *RemoteResponse) GetDescriptors() []*Descriptor {
-	if x != nil {
-		return x.Descriptors
 	}
 	return nil
 }
@@ -844,7 +808,7 @@ type InputsRequest struct {
 
 func (x *InputsRequest) Reset() {
 	*x = InputsRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[13]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -856,7 +820,7 @@ func (x *InputsRequest) String() string {
 func (*InputsRequest) ProtoMessage() {}
 
 func (x *InputsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[13]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +833,7 @@ func (x *InputsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputsRequest.ProtoReflect.Descriptor instead.
 func (*InputsRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{13}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{11}
 }
 
 type InputsResponse struct {
@@ -881,7 +845,7 @@ type InputsResponse struct {
 
 func (x *InputsResponse) Reset() {
 	*x = InputsResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[14]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -893,7 +857,7 @@ func (x *InputsResponse) String() string {
 func (*InputsResponse) ProtoMessage() {}
 
 func (x *InputsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[14]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -906,7 +870,7 @@ func (x *InputsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputsResponse.ProtoReflect.Descriptor instead.
 func (*InputsResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{14}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *InputsResponse) GetDefinitions() map[string]*pb.Definition {
@@ -932,7 +896,7 @@ type ResolveImageConfigRequest struct {
 
 func (x *ResolveImageConfigRequest) Reset() {
 	*x = ResolveImageConfigRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[15]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -944,7 +908,7 @@ func (x *ResolveImageConfigRequest) String() string {
 func (*ResolveImageConfigRequest) ProtoMessage() {}
 
 func (x *ResolveImageConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[15]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -957,7 +921,7 @@ func (x *ResolveImageConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveImageConfigRequest.ProtoReflect.Descriptor instead.
 func (*ResolveImageConfigRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{15}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ResolveImageConfigRequest) GetRef() string {
@@ -1027,7 +991,7 @@ type ResolveImageConfigResponse struct {
 
 func (x *ResolveImageConfigResponse) Reset() {
 	*x = ResolveImageConfigResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[16]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1039,7 +1003,7 @@ func (x *ResolveImageConfigResponse) String() string {
 func (*ResolveImageConfigResponse) ProtoMessage() {}
 
 func (x *ResolveImageConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[16]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1052,7 +1016,7 @@ func (x *ResolveImageConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveImageConfigResponse.ProtoReflect.Descriptor instead.
 func (*ResolveImageConfigResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{16}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ResolveImageConfigResponse) GetDigest() string {
@@ -1091,7 +1055,7 @@ type ResolveSourceMetaRequest struct {
 
 func (x *ResolveSourceMetaRequest) Reset() {
 	*x = ResolveSourceMetaRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[17]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1103,7 +1067,7 @@ func (x *ResolveSourceMetaRequest) String() string {
 func (*ResolveSourceMetaRequest) ProtoMessage() {}
 
 func (x *ResolveSourceMetaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[17]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1116,7 +1080,7 @@ func (x *ResolveSourceMetaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceMetaRequest.ProtoReflect.Descriptor instead.
 func (*ResolveSourceMetaRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{17}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ResolveSourceMetaRequest) GetSource() *pb.SourceOp {
@@ -1180,7 +1144,7 @@ type ResolveSourceMetaResponse struct {
 
 func (x *ResolveSourceMetaResponse) Reset() {
 	*x = ResolveSourceMetaResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[18]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1192,7 +1156,7 @@ func (x *ResolveSourceMetaResponse) String() string {
 func (*ResolveSourceMetaResponse) ProtoMessage() {}
 
 func (x *ResolveSourceMetaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[18]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1205,7 +1169,7 @@ func (x *ResolveSourceMetaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceMetaResponse.ProtoReflect.Descriptor instead.
 func (*ResolveSourceMetaResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{18}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ResolveSourceMetaResponse) GetSource() *pb.SourceOp {
@@ -1246,7 +1210,7 @@ type ResolveSourceImageRequest struct {
 
 func (x *ResolveSourceImageRequest) Reset() {
 	*x = ResolveSourceImageRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[19]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1258,7 +1222,7 @@ func (x *ResolveSourceImageRequest) String() string {
 func (*ResolveSourceImageRequest) ProtoMessage() {}
 
 func (x *ResolveSourceImageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[19]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1271,7 +1235,7 @@ func (x *ResolveSourceImageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceImageRequest.ProtoReflect.Descriptor instead.
 func (*ResolveSourceImageRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{19}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ResolveSourceImageRequest) GetNoConfig() bool {
@@ -1301,7 +1265,7 @@ type AttestationChain struct {
 
 func (x *AttestationChain) Reset() {
 	*x = AttestationChain{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[20]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1313,7 +1277,7 @@ func (x *AttestationChain) String() string {
 func (*AttestationChain) ProtoMessage() {}
 
 func (x *AttestationChain) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[20]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1326,7 +1290,7 @@ func (x *AttestationChain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttestationChain.ProtoReflect.Descriptor instead.
 func (*AttestationChain) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{20}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AttestationChain) GetRoot() string {
@@ -1375,7 +1339,7 @@ type ResolveSourceImageResponse struct {
 
 func (x *ResolveSourceImageResponse) Reset() {
 	*x = ResolveSourceImageResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[21]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1387,7 +1351,7 @@ func (x *ResolveSourceImageResponse) String() string {
 func (*ResolveSourceImageResponse) ProtoMessage() {}
 
 func (x *ResolveSourceImageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[21]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1400,7 +1364,7 @@ func (x *ResolveSourceImageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceImageResponse.ProtoReflect.Descriptor instead.
 func (*ResolveSourceImageResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{21}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResolveSourceImageResponse) GetDigest() string {
@@ -1434,7 +1398,7 @@ type ResolveSourceGitRequest struct {
 
 func (x *ResolveSourceGitRequest) Reset() {
 	*x = ResolveSourceGitRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[22]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1446,7 +1410,7 @@ func (x *ResolveSourceGitRequest) String() string {
 func (*ResolveSourceGitRequest) ProtoMessage() {}
 
 func (x *ResolveSourceGitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[22]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1459,7 +1423,7 @@ func (x *ResolveSourceGitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceGitRequest.ProtoReflect.Descriptor instead.
 func (*ResolveSourceGitRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{22}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ResolveSourceGitRequest) GetReturnObject() bool {
@@ -1482,7 +1446,7 @@ type ResolveSourceGitResponse struct {
 
 func (x *ResolveSourceGitResponse) Reset() {
 	*x = ResolveSourceGitResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[23]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1494,7 +1458,7 @@ func (x *ResolveSourceGitResponse) String() string {
 func (*ResolveSourceGitResponse) ProtoMessage() {}
 
 func (x *ResolveSourceGitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[23]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1507,7 +1471,7 @@ func (x *ResolveSourceGitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceGitResponse.ProtoReflect.Descriptor instead.
 func (*ResolveSourceGitResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{23}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ResolveSourceGitResponse) GetChecksum() string {
@@ -1556,7 +1520,7 @@ type ResolveSourceHTTPResponse struct {
 
 func (x *ResolveSourceHTTPResponse) Reset() {
 	*x = ResolveSourceHTTPResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[24]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1568,7 +1532,7 @@ func (x *ResolveSourceHTTPResponse) String() string {
 func (*ResolveSourceHTTPResponse) ProtoMessage() {}
 
 func (x *ResolveSourceHTTPResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[24]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1581,7 +1545,7 @@ func (x *ResolveSourceHTTPResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSourceHTTPResponse.ProtoReflect.Descriptor instead.
 func (*ResolveSourceHTTPResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{24}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ResolveSourceHTTPResponse) GetChecksum() string {
@@ -1629,7 +1593,7 @@ type SolveRequest struct {
 
 func (x *SolveRequest) Reset() {
 	*x = SolveRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[25]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1641,7 +1605,7 @@ func (x *SolveRequest) String() string {
 func (*SolveRequest) ProtoMessage() {}
 
 func (x *SolveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[25]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +1618,7 @@ func (x *SolveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolveRequest.ProtoReflect.Descriptor instead.
 func (*SolveRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{25}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SolveRequest) GetDefinition() *pb.Definition {
@@ -1745,7 +1709,7 @@ type CacheOptionsEntry struct {
 
 func (x *CacheOptionsEntry) Reset() {
 	*x = CacheOptionsEntry{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[26]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1757,7 +1721,7 @@ func (x *CacheOptionsEntry) String() string {
 func (*CacheOptionsEntry) ProtoMessage() {}
 
 func (x *CacheOptionsEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[26]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1770,7 +1734,7 @@ func (x *CacheOptionsEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheOptionsEntry.ProtoReflect.Descriptor instead.
 func (*CacheOptionsEntry) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{26}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CacheOptionsEntry) GetType() string {
@@ -1799,7 +1763,7 @@ type SolveResponse struct {
 
 func (x *SolveResponse) Reset() {
 	*x = SolveResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[27]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1811,7 +1775,7 @@ func (x *SolveResponse) String() string {
 func (*SolveResponse) ProtoMessage() {}
 
 func (x *SolveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[27]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1824,7 +1788,7 @@ func (x *SolveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolveResponse.ProtoReflect.Descriptor instead.
 func (*SolveResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{27}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SolveResponse) GetRef() string {
@@ -1852,7 +1816,7 @@ type ReadFileRequest struct {
 
 func (x *ReadFileRequest) Reset() {
 	*x = ReadFileRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[28]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1864,7 +1828,7 @@ func (x *ReadFileRequest) String() string {
 func (*ReadFileRequest) ProtoMessage() {}
 
 func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[28]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1877,7 +1841,7 @@ func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileRequest.ProtoReflect.Descriptor instead.
 func (*ReadFileRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{28}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ReadFileRequest) GetRef() string {
@@ -1911,7 +1875,7 @@ type FileRange struct {
 
 func (x *FileRange) Reset() {
 	*x = FileRange{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[29]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1923,7 +1887,7 @@ func (x *FileRange) String() string {
 func (*FileRange) ProtoMessage() {}
 
 func (x *FileRange) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[29]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1936,7 +1900,7 @@ func (x *FileRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileRange.ProtoReflect.Descriptor instead.
 func (*FileRange) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{29}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *FileRange) GetOffset() int64 {
@@ -1962,7 +1926,7 @@ type ReadFileResponse struct {
 
 func (x *ReadFileResponse) Reset() {
 	*x = ReadFileResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[30]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1974,7 +1938,7 @@ func (x *ReadFileResponse) String() string {
 func (*ReadFileResponse) ProtoMessage() {}
 
 func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[30]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1987,7 +1951,7 @@ func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileResponse.ProtoReflect.Descriptor instead.
 func (*ReadFileResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{30}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ReadFileResponse) GetData() []byte {
@@ -2008,7 +1972,7 @@ type ReadDirRequest struct {
 
 func (x *ReadDirRequest) Reset() {
 	*x = ReadDirRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[31]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2020,7 +1984,7 @@ func (x *ReadDirRequest) String() string {
 func (*ReadDirRequest) ProtoMessage() {}
 
 func (x *ReadDirRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[31]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2033,7 +1997,7 @@ func (x *ReadDirRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadDirRequest.ProtoReflect.Descriptor instead.
 func (*ReadDirRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{31}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ReadDirRequest) GetRef() string {
@@ -2066,7 +2030,7 @@ type ReadDirResponse struct {
 
 func (x *ReadDirResponse) Reset() {
 	*x = ReadDirResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[32]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2078,7 +2042,7 @@ func (x *ReadDirResponse) String() string {
 func (*ReadDirResponse) ProtoMessage() {}
 
 func (x *ReadDirResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[32]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2091,7 +2055,7 @@ func (x *ReadDirResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadDirResponse.ProtoReflect.Descriptor instead.
 func (*ReadDirResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{32}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ReadDirResponse) GetEntries() []*types.Stat {
@@ -2111,7 +2075,7 @@ type StatFileRequest struct {
 
 func (x *StatFileRequest) Reset() {
 	*x = StatFileRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[33]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2123,7 +2087,7 @@ func (x *StatFileRequest) String() string {
 func (*StatFileRequest) ProtoMessage() {}
 
 func (x *StatFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[33]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2136,7 +2100,7 @@ func (x *StatFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatFileRequest.ProtoReflect.Descriptor instead.
 func (*StatFileRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{33}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *StatFileRequest) GetRef() string {
@@ -2162,7 +2126,7 @@ type StatFileResponse struct {
 
 func (x *StatFileResponse) Reset() {
 	*x = StatFileResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[34]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2174,7 +2138,7 @@ func (x *StatFileResponse) String() string {
 func (*StatFileResponse) ProtoMessage() {}
 
 func (x *StatFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[34]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2187,7 +2151,7 @@ func (x *StatFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatFileResponse.ProtoReflect.Descriptor instead.
 func (*StatFileResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{34}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *StatFileResponse) GetStat() *types.Stat {
@@ -2206,7 +2170,7 @@ type EvaluateRequest struct {
 
 func (x *EvaluateRequest) Reset() {
 	*x = EvaluateRequest{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[35]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2218,7 +2182,7 @@ func (x *EvaluateRequest) String() string {
 func (*EvaluateRequest) ProtoMessage() {}
 
 func (x *EvaluateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[35]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2231,7 +2195,7 @@ func (x *EvaluateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{35}
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *EvaluateRequest) GetRef() string {
@@ -2249,7 +2213,7 @@ type EvaluateResponse struct {
 
 func (x *EvaluateResponse) Reset() {
 	*x = EvaluateResponse{}
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[36]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2261,7 +2225,7 @@ func (x *EvaluateResponse) String() string {
 func (*EvaluateResponse) ProtoMessage() {}
 
 func (x *EvaluateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[36]
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2274,7 +2238,103 @@ func (x *EvaluateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateResponse.ProtoReflect.Descriptor instead.
 func (*EvaluateResponse) Descriptor() ([]byte, []int) {
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{34}
+}
+
+type GetRemoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ref           string                 `protobuf:"bytes,1,opt,name=Ref,proto3" json:"Ref,omitempty"`
+	Compression   *Compression           `protobuf:"bytes,2,opt,name=compression,proto3" json:"compression,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRemoteRequest) Reset() {
+	*x = GetRemoteRequest{}
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRemoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRemoteRequest) ProtoMessage() {}
+
+func (x *GetRemoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRemoteRequest.ProtoReflect.Descriptor instead.
+func (*GetRemoteRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetRemoteRequest) GetRef() string {
+	if x != nil {
+		return x.Ref
+	}
+	return ""
+}
+
+func (x *GetRemoteRequest) GetCompression() *Compression {
+	if x != nil {
+		return x.Compression
+	}
+	return nil
+}
+
+type GetRemoteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Descriptors   []*Descriptor          `protobuf:"bytes,1,rep,name=descriptors,proto3" json:"descriptors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRemoteResponse) Reset() {
+	*x = GetRemoteResponse{}
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRemoteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRemoteResponse) ProtoMessage() {}
+
+func (x *GetRemoteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRemoteResponse.ProtoReflect.Descriptor instead.
+func (*GetRemoteResponse) Descriptor() ([]byte, []int) {
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GetRemoteResponse) GetDescriptors() []*Descriptor {
+	if x != nil {
+		return x.Descriptors
+	}
+	return nil
 }
 
 type PingRequest struct {
@@ -3378,6 +3438,66 @@ func (x *Descriptor) GetAnnotations() map[string]string {
 	return nil
 }
 
+type Compression struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          Compression_Type       `protobuf:"varint,1,opt,name=type,proto3,enum=moby.buildkit.v1.frontend.Compression_Type" json:"type,omitempty"`
+	Force         bool                   `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
+	Level         int32                  `protobuf:"varint,3,opt,name=level,proto3" json:"level,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Compression) Reset() {
+	*x = Compression{}
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Compression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Compression) ProtoMessage() {}
+
+func (x *Compression) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Compression.ProtoReflect.Descriptor instead.
+func (*Compression) Descriptor() ([]byte, []int) {
+	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *Compression) GetType() Compression_Type {
+	if x != nil {
+		return x.Type
+	}
+	return Compression_NONE
+}
+
+func (x *Compression) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+func (x *Compression) GetLevel() int32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
 var File_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto protoreflect.FileDescriptor
 
 const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = "" +
@@ -3430,14 +3550,10 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\rReturnRequest\x129\n" +
 	"\x06result\x18\x01 \x01(\v2!.moby.buildkit.v1.frontend.ResultR\x06result\x12(\n" +
 	"\x05error\x18\x02 \x01(\v2\x12.google.rpc.StatusR\x05error\"\x10\n" +
-	"\x0eReturnResponse\"\x0f\n" +
-	"\rExportRequest\"K\n" +
-	"\x0eExportResponse\x129\n" +
-	"\x06result\x18\x01 \x01(\v2!.moby.buildkit.v1.frontend.ResultR\x06result\"!\n" +
-	"\rRemoteRequest\x12\x10\n" +
-	"\x03Ref\x18\x01 \x01(\tR\x03Ref\"Y\n" +
-	"\x0eRemoteResponse\x12G\n" +
-	"\vdescriptors\x18\x01 \x03(\v2%.moby.buildkit.v1.frontend.DescriptorR\vdescriptors\"\x0f\n" +
+	"\x0eReturnResponse\"\x12\n" +
+	"\x10GetReturnRequest\"N\n" +
+	"\x11GetReturnResponse\x129\n" +
+	"\x06result\x18\x01 \x01(\v2!.moby.buildkit.v1.frontend.ResultR\x06result\"\x0f\n" +
 	"\rInputsRequest\"\xbe\x01\n" +
 	"\x0eInputsResponse\x12\\\n" +
 	"\vDefinitions\x18\x01 \x03(\v2:.moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntryR\vDefinitions\x1aN\n" +
@@ -3552,7 +3668,12 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\x04stat\x18\x01 \x01(\v2\x12.fsutil.types.StatR\x04stat\"#\n" +
 	"\x0fEvaluateRequest\x12\x10\n" +
 	"\x03Ref\x18\x01 \x01(\tR\x03Ref\"\x12\n" +
-	"\x10EvaluateResponse\"\r\n" +
+	"\x10EvaluateResponse\"n\n" +
+	"\x10GetRemoteRequest\x12\x10\n" +
+	"\x03Ref\x18\x01 \x01(\tR\x03Ref\x12H\n" +
+	"\vcompression\x18\x02 \x01(\v2&.moby.buildkit.v1.frontend.CompressionR\vcompression\"\\\n" +
+	"\x11GetRemoteResponse\x12G\n" +
+	"\vdescriptors\x18\x01 \x03(\v2%.moby.buildkit.v1.frontend.DescriptorR\vdescriptors\"\r\n" +
 	"\vPingRequest\"\xd6\x01\n" +
 	"\fPongResponse\x12J\n" +
 	"\x0fFrontendAPICaps\x18\x01 \x03(\v2 .moby.buildkit.v1.apicaps.APICapR\x0fFrontendAPICaps\x12:\n" +
@@ -3627,7 +3748,16 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\vannotations\x18\x05 \x03(\v26.moby.buildkit.v1.frontend.Descriptor.AnnotationsEntryR\vannotations\x1a>\n" +
 	"\x10AnnotationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*)\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xad\x01\n" +
+	"\vCompression\x12?\n" +
+	"\x04type\x18\x01 \x01(\x0e2+.moby.buildkit.v1.frontend.Compression.TypeR\x04type\x12\x14\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\x12\x14\n" +
+	"\x05level\x18\x03 \x01(\x05R\x05level\"1\n" +
+	"\x04Type\x12\b\n" +
+	"\x04NONE\x10\x00\x12\b\n" +
+	"\x04GZIP\x10\x01\x12\v\n" +
+	"\aESTARGZ\x10\x02\x12\b\n" +
+	"\x04ZSTD\x10\x03*)\n" +
 	"\x0fAttestationKind\x12\n" +
 	"\n" +
 	"\x06InToto\x10\x00\x12\n" +
@@ -3635,7 +3765,7 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\x06Bundle\x10\x01*&\n" +
 	"\x11InTotoSubjectKind\x12\b\n" +
 	"\x04Self\x10\x00\x12\a\n" +
-	"\x03Raw\x10\x012\xfb\f\n" +
+	"\x03Raw\x10\x012\x8d\r\n" +
 	"\tLLBBridge\x12\x81\x01\n" +
 	"\x12ResolveImageConfig\x124.moby.buildkit.v1.frontend.ResolveImageConfigRequest\x1a5.moby.buildkit.v1.frontend.ResolveImageConfigResponse\x12~\n" +
 	"\x11ResolveSourceMeta\x123.moby.buildkit.v1.frontend.ResolveSourceMetaRequest\x1a4.moby.buildkit.v1.frontend.ResolveSourceMetaResponse\x12Z\n" +
@@ -3643,12 +3773,12 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\bReadFile\x12*.moby.buildkit.v1.frontend.ReadFileRequest\x1a+.moby.buildkit.v1.frontend.ReadFileResponse\x12`\n" +
 	"\aReadDir\x12).moby.buildkit.v1.frontend.ReadDirRequest\x1a*.moby.buildkit.v1.frontend.ReadDirResponse\x12c\n" +
 	"\bStatFile\x12*.moby.buildkit.v1.frontend.StatFileRequest\x1a+.moby.buildkit.v1.frontend.StatFileResponse\x12c\n" +
-	"\bEvaluate\x12*.moby.buildkit.v1.frontend.EvaluateRequest\x1a+.moby.buildkit.v1.frontend.EvaluateResponse\x12W\n" +
+	"\bEvaluate\x12*.moby.buildkit.v1.frontend.EvaluateRequest\x1a+.moby.buildkit.v1.frontend.EvaluateResponse\x12f\n" +
+	"\tGetRemote\x12+.moby.buildkit.v1.frontend.GetRemoteRequest\x1a,.moby.buildkit.v1.frontend.GetRemoteResponse\x12W\n" +
 	"\x04Ping\x12&.moby.buildkit.v1.frontend.PingRequest\x1a'.moby.buildkit.v1.frontend.PongResponse\x12]\n" +
-	"\x06Return\x12(.moby.buildkit.v1.frontend.ReturnRequest\x1a).moby.buildkit.v1.frontend.ReturnResponse\x12]\n" +
-	"\x06Inputs\x12(.moby.buildkit.v1.frontend.InputsRequest\x1a).moby.buildkit.v1.frontend.InputsResponse\x12]\n" +
-	"\x06Export\x12(.moby.buildkit.v1.frontend.ExportRequest\x1a).moby.buildkit.v1.frontend.ExportResponse\x12]\n" +
-	"\x06Remote\x12(.moby.buildkit.v1.frontend.RemoteRequest\x1a).moby.buildkit.v1.frontend.RemoteResponse\x12o\n" +
+	"\x06Return\x12(.moby.buildkit.v1.frontend.ReturnRequest\x1a).moby.buildkit.v1.frontend.ReturnResponse\x12f\n" +
+	"\tGetReturn\x12+.moby.buildkit.v1.frontend.GetReturnRequest\x1a,.moby.buildkit.v1.frontend.GetReturnResponse\x12]\n" +
+	"\x06Inputs\x12(.moby.buildkit.v1.frontend.InputsRequest\x1a).moby.buildkit.v1.frontend.InputsResponse\x12o\n" +
 	"\fNewContainer\x12..moby.buildkit.v1.frontend.NewContainerRequest\x1a/.moby.buildkit.v1.frontend.NewContainerResponse\x12{\n" +
 	"\x10ReleaseContainer\x122.moby.buildkit.v1.frontend.ReleaseContainerRequest\x1a3.moby.buildkit.v1.frontend.ReleaseContainerResponse\x12a\n" +
 	"\vExecProcess\x12&.moby.buildkit.v1.frontend.ExecMessage\x1a&.moby.buildkit.v1.frontend.ExecMessage(\x010\x01\x12W\n" +
@@ -3666,205 +3796,209 @@ func file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescGZIP
 	return file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDescData
 }
 
-var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
+var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_goTypes = []any{
 	(AttestationKind)(0),               // 0: moby.buildkit.v1.frontend.AttestationKind
 	(InTotoSubjectKind)(0),             // 1: moby.buildkit.v1.frontend.InTotoSubjectKind
-	(*Result)(nil),                     // 2: moby.buildkit.v1.frontend.Result
-	(*RefMapDeprecated)(nil),           // 3: moby.buildkit.v1.frontend.RefMapDeprecated
-	(*Ref)(nil),                        // 4: moby.buildkit.v1.frontend.Ref
-	(*RefMap)(nil),                     // 5: moby.buildkit.v1.frontend.RefMap
-	(*Attestations)(nil),               // 6: moby.buildkit.v1.frontend.Attestations
-	(*Attestation)(nil),                // 7: moby.buildkit.v1.frontend.Attestation
-	(*InTotoSubject)(nil),              // 8: moby.buildkit.v1.frontend.InTotoSubject
-	(*ReturnRequest)(nil),              // 9: moby.buildkit.v1.frontend.ReturnRequest
-	(*ReturnResponse)(nil),             // 10: moby.buildkit.v1.frontend.ReturnResponse
-	(*ExportRequest)(nil),              // 11: moby.buildkit.v1.frontend.ExportRequest
-	(*ExportResponse)(nil),             // 12: moby.buildkit.v1.frontend.ExportResponse
-	(*RemoteRequest)(nil),              // 13: moby.buildkit.v1.frontend.RemoteRequest
-	(*RemoteResponse)(nil),             // 14: moby.buildkit.v1.frontend.RemoteResponse
-	(*InputsRequest)(nil),              // 15: moby.buildkit.v1.frontend.InputsRequest
-	(*InputsResponse)(nil),             // 16: moby.buildkit.v1.frontend.InputsResponse
-	(*ResolveImageConfigRequest)(nil),  // 17: moby.buildkit.v1.frontend.ResolveImageConfigRequest
-	(*ResolveImageConfigResponse)(nil), // 18: moby.buildkit.v1.frontend.ResolveImageConfigResponse
-	(*ResolveSourceMetaRequest)(nil),   // 19: moby.buildkit.v1.frontend.ResolveSourceMetaRequest
-	(*ResolveSourceMetaResponse)(nil),  // 20: moby.buildkit.v1.frontend.ResolveSourceMetaResponse
-	(*ResolveSourceImageRequest)(nil),  // 21: moby.buildkit.v1.frontend.ResolveSourceImageRequest
-	(*AttestationChain)(nil),           // 22: moby.buildkit.v1.frontend.AttestationChain
-	(*ResolveSourceImageResponse)(nil), // 23: moby.buildkit.v1.frontend.ResolveSourceImageResponse
-	(*ResolveSourceGitRequest)(nil),    // 24: moby.buildkit.v1.frontend.ResolveSourceGitRequest
-	(*ResolveSourceGitResponse)(nil),   // 25: moby.buildkit.v1.frontend.ResolveSourceGitResponse
-	(*ResolveSourceHTTPResponse)(nil),  // 26: moby.buildkit.v1.frontend.ResolveSourceHTTPResponse
-	(*SolveRequest)(nil),               // 27: moby.buildkit.v1.frontend.SolveRequest
-	(*CacheOptionsEntry)(nil),          // 28: moby.buildkit.v1.frontend.CacheOptionsEntry
-	(*SolveResponse)(nil),              // 29: moby.buildkit.v1.frontend.SolveResponse
-	(*ReadFileRequest)(nil),            // 30: moby.buildkit.v1.frontend.ReadFileRequest
-	(*FileRange)(nil),                  // 31: moby.buildkit.v1.frontend.FileRange
-	(*ReadFileResponse)(nil),           // 32: moby.buildkit.v1.frontend.ReadFileResponse
-	(*ReadDirRequest)(nil),             // 33: moby.buildkit.v1.frontend.ReadDirRequest
-	(*ReadDirResponse)(nil),            // 34: moby.buildkit.v1.frontend.ReadDirResponse
-	(*StatFileRequest)(nil),            // 35: moby.buildkit.v1.frontend.StatFileRequest
-	(*StatFileResponse)(nil),           // 36: moby.buildkit.v1.frontend.StatFileResponse
-	(*EvaluateRequest)(nil),            // 37: moby.buildkit.v1.frontend.EvaluateRequest
-	(*EvaluateResponse)(nil),           // 38: moby.buildkit.v1.frontend.EvaluateResponse
-	(*PingRequest)(nil),                // 39: moby.buildkit.v1.frontend.PingRequest
-	(*PongResponse)(nil),               // 40: moby.buildkit.v1.frontend.PongResponse
-	(*WarnRequest)(nil),                // 41: moby.buildkit.v1.frontend.WarnRequest
-	(*WarnResponse)(nil),               // 42: moby.buildkit.v1.frontend.WarnResponse
-	(*NewContainerRequest)(nil),        // 43: moby.buildkit.v1.frontend.NewContainerRequest
-	(*NewContainerResponse)(nil),       // 44: moby.buildkit.v1.frontend.NewContainerResponse
-	(*ReleaseContainerRequest)(nil),    // 45: moby.buildkit.v1.frontend.ReleaseContainerRequest
-	(*ReleaseContainerResponse)(nil),   // 46: moby.buildkit.v1.frontend.ReleaseContainerResponse
-	(*ExecMessage)(nil),                // 47: moby.buildkit.v1.frontend.ExecMessage
-	(*InitMessage)(nil),                // 48: moby.buildkit.v1.frontend.InitMessage
-	(*ExitMessage)(nil),                // 49: moby.buildkit.v1.frontend.ExitMessage
-	(*StartedMessage)(nil),             // 50: moby.buildkit.v1.frontend.StartedMessage
-	(*DoneMessage)(nil),                // 51: moby.buildkit.v1.frontend.DoneMessage
-	(*FdMessage)(nil),                  // 52: moby.buildkit.v1.frontend.FdMessage
-	(*ResizeMessage)(nil),              // 53: moby.buildkit.v1.frontend.ResizeMessage
-	(*SignalMessage)(nil),              // 54: moby.buildkit.v1.frontend.SignalMessage
-	(*Blob)(nil),                       // 55: moby.buildkit.v1.frontend.Blob
-	(*Descriptor)(nil),                 // 56: moby.buildkit.v1.frontend.Descriptor
-	nil,                                // 57: moby.buildkit.v1.frontend.Result.MetadataEntry
-	nil,                                // 58: moby.buildkit.v1.frontend.Result.AttestationsEntry
-	nil,                                // 59: moby.buildkit.v1.frontend.RefMapDeprecated.RefsEntry
-	nil,                                // 60: moby.buildkit.v1.frontend.RefMap.RefsEntry
-	nil,                                // 61: moby.buildkit.v1.frontend.Attestation.MetadataEntry
-	nil,                                // 62: moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry
-	nil,                                // 63: moby.buildkit.v1.frontend.AttestationChain.BlobsEntry
-	nil,                                // 64: moby.buildkit.v1.frontend.SolveRequest.FrontendOptEntry
-	nil,                                // 65: moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry
-	nil,                                // 66: moby.buildkit.v1.frontend.CacheOptionsEntry.AttrsEntry
-	nil,                                // 67: moby.buildkit.v1.frontend.Descriptor.AnnotationsEntry
-	(*pb.Definition)(nil),              // 68: pb.Definition
-	(*status.Status)(nil),              // 69: google.rpc.Status
-	(*pb.Platform)(nil),                // 70: pb.Platform
-	(*pb1.Policy)(nil),                 // 71: moby.buildkit.v1.sourcepolicy.Policy
-	(*pb.SourceOp)(nil),                // 72: pb.SourceOp
-	(*timestamp.Timestamp)(nil),        // 73: google.protobuf.Timestamp
-	(*types.Stat)(nil),                 // 74: fsutil.types.Stat
-	(*pb2.APICap)(nil),                 // 75: moby.buildkit.v1.apicaps.APICap
-	(*types1.WorkerRecord)(nil),        // 76: moby.buildkit.v1.types.WorkerRecord
-	(*pb.SourceInfo)(nil),              // 77: pb.SourceInfo
-	(*pb.Range)(nil),                   // 78: pb.Range
-	(*pb.Mount)(nil),                   // 79: pb.Mount
-	(pb.NetMode)(0),                    // 80: pb.NetMode
-	(*pb.WorkerConstraints)(nil),       // 81: pb.WorkerConstraints
-	(*pb.HostIP)(nil),                  // 82: pb.HostIP
-	(*pb.Meta)(nil),                    // 83: pb.Meta
-	(pb.SecurityMode)(0),               // 84: pb.SecurityMode
-	(*pb.SecretEnv)(nil),               // 85: pb.SecretEnv
+	(Compression_Type)(0),              // 2: moby.buildkit.v1.frontend.Compression.Type
+	(*Result)(nil),                     // 3: moby.buildkit.v1.frontend.Result
+	(*RefMapDeprecated)(nil),           // 4: moby.buildkit.v1.frontend.RefMapDeprecated
+	(*Ref)(nil),                        // 5: moby.buildkit.v1.frontend.Ref
+	(*RefMap)(nil),                     // 6: moby.buildkit.v1.frontend.RefMap
+	(*Attestations)(nil),               // 7: moby.buildkit.v1.frontend.Attestations
+	(*Attestation)(nil),                // 8: moby.buildkit.v1.frontend.Attestation
+	(*InTotoSubject)(nil),              // 9: moby.buildkit.v1.frontend.InTotoSubject
+	(*ReturnRequest)(nil),              // 10: moby.buildkit.v1.frontend.ReturnRequest
+	(*ReturnResponse)(nil),             // 11: moby.buildkit.v1.frontend.ReturnResponse
+	(*GetReturnRequest)(nil),           // 12: moby.buildkit.v1.frontend.GetReturnRequest
+	(*GetReturnResponse)(nil),          // 13: moby.buildkit.v1.frontend.GetReturnResponse
+	(*InputsRequest)(nil),              // 14: moby.buildkit.v1.frontend.InputsRequest
+	(*InputsResponse)(nil),             // 15: moby.buildkit.v1.frontend.InputsResponse
+	(*ResolveImageConfigRequest)(nil),  // 16: moby.buildkit.v1.frontend.ResolveImageConfigRequest
+	(*ResolveImageConfigResponse)(nil), // 17: moby.buildkit.v1.frontend.ResolveImageConfigResponse
+	(*ResolveSourceMetaRequest)(nil),   // 18: moby.buildkit.v1.frontend.ResolveSourceMetaRequest
+	(*ResolveSourceMetaResponse)(nil),  // 19: moby.buildkit.v1.frontend.ResolveSourceMetaResponse
+	(*ResolveSourceImageRequest)(nil),  // 20: moby.buildkit.v1.frontend.ResolveSourceImageRequest
+	(*AttestationChain)(nil),           // 21: moby.buildkit.v1.frontend.AttestationChain
+	(*ResolveSourceImageResponse)(nil), // 22: moby.buildkit.v1.frontend.ResolveSourceImageResponse
+	(*ResolveSourceGitRequest)(nil),    // 23: moby.buildkit.v1.frontend.ResolveSourceGitRequest
+	(*ResolveSourceGitResponse)(nil),   // 24: moby.buildkit.v1.frontend.ResolveSourceGitResponse
+	(*ResolveSourceHTTPResponse)(nil),  // 25: moby.buildkit.v1.frontend.ResolveSourceHTTPResponse
+	(*SolveRequest)(nil),               // 26: moby.buildkit.v1.frontend.SolveRequest
+	(*CacheOptionsEntry)(nil),          // 27: moby.buildkit.v1.frontend.CacheOptionsEntry
+	(*SolveResponse)(nil),              // 28: moby.buildkit.v1.frontend.SolveResponse
+	(*ReadFileRequest)(nil),            // 29: moby.buildkit.v1.frontend.ReadFileRequest
+	(*FileRange)(nil),                  // 30: moby.buildkit.v1.frontend.FileRange
+	(*ReadFileResponse)(nil),           // 31: moby.buildkit.v1.frontend.ReadFileResponse
+	(*ReadDirRequest)(nil),             // 32: moby.buildkit.v1.frontend.ReadDirRequest
+	(*ReadDirResponse)(nil),            // 33: moby.buildkit.v1.frontend.ReadDirResponse
+	(*StatFileRequest)(nil),            // 34: moby.buildkit.v1.frontend.StatFileRequest
+	(*StatFileResponse)(nil),           // 35: moby.buildkit.v1.frontend.StatFileResponse
+	(*EvaluateRequest)(nil),            // 36: moby.buildkit.v1.frontend.EvaluateRequest
+	(*EvaluateResponse)(nil),           // 37: moby.buildkit.v1.frontend.EvaluateResponse
+	(*GetRemoteRequest)(nil),           // 38: moby.buildkit.v1.frontend.GetRemoteRequest
+	(*GetRemoteResponse)(nil),          // 39: moby.buildkit.v1.frontend.GetRemoteResponse
+	(*PingRequest)(nil),                // 40: moby.buildkit.v1.frontend.PingRequest
+	(*PongResponse)(nil),               // 41: moby.buildkit.v1.frontend.PongResponse
+	(*WarnRequest)(nil),                // 42: moby.buildkit.v1.frontend.WarnRequest
+	(*WarnResponse)(nil),               // 43: moby.buildkit.v1.frontend.WarnResponse
+	(*NewContainerRequest)(nil),        // 44: moby.buildkit.v1.frontend.NewContainerRequest
+	(*NewContainerResponse)(nil),       // 45: moby.buildkit.v1.frontend.NewContainerResponse
+	(*ReleaseContainerRequest)(nil),    // 46: moby.buildkit.v1.frontend.ReleaseContainerRequest
+	(*ReleaseContainerResponse)(nil),   // 47: moby.buildkit.v1.frontend.ReleaseContainerResponse
+	(*ExecMessage)(nil),                // 48: moby.buildkit.v1.frontend.ExecMessage
+	(*InitMessage)(nil),                // 49: moby.buildkit.v1.frontend.InitMessage
+	(*ExitMessage)(nil),                // 50: moby.buildkit.v1.frontend.ExitMessage
+	(*StartedMessage)(nil),             // 51: moby.buildkit.v1.frontend.StartedMessage
+	(*DoneMessage)(nil),                // 52: moby.buildkit.v1.frontend.DoneMessage
+	(*FdMessage)(nil),                  // 53: moby.buildkit.v1.frontend.FdMessage
+	(*ResizeMessage)(nil),              // 54: moby.buildkit.v1.frontend.ResizeMessage
+	(*SignalMessage)(nil),              // 55: moby.buildkit.v1.frontend.SignalMessage
+	(*Blob)(nil),                       // 56: moby.buildkit.v1.frontend.Blob
+	(*Descriptor)(nil),                 // 57: moby.buildkit.v1.frontend.Descriptor
+	(*Compression)(nil),                // 58: moby.buildkit.v1.frontend.Compression
+	nil,                                // 59: moby.buildkit.v1.frontend.Result.MetadataEntry
+	nil,                                // 60: moby.buildkit.v1.frontend.Result.AttestationsEntry
+	nil,                                // 61: moby.buildkit.v1.frontend.RefMapDeprecated.RefsEntry
+	nil,                                // 62: moby.buildkit.v1.frontend.RefMap.RefsEntry
+	nil,                                // 63: moby.buildkit.v1.frontend.Attestation.MetadataEntry
+	nil,                                // 64: moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry
+	nil,                                // 65: moby.buildkit.v1.frontend.AttestationChain.BlobsEntry
+	nil,                                // 66: moby.buildkit.v1.frontend.SolveRequest.FrontendOptEntry
+	nil,                                // 67: moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry
+	nil,                                // 68: moby.buildkit.v1.frontend.CacheOptionsEntry.AttrsEntry
+	nil,                                // 69: moby.buildkit.v1.frontend.Descriptor.AnnotationsEntry
+	(*pb.Definition)(nil),              // 70: pb.Definition
+	(*status.Status)(nil),              // 71: google.rpc.Status
+	(*pb.Platform)(nil),                // 72: pb.Platform
+	(*pb1.Policy)(nil),                 // 73: moby.buildkit.v1.sourcepolicy.Policy
+	(*pb.SourceOp)(nil),                // 74: pb.SourceOp
+	(*timestamp.Timestamp)(nil),        // 75: google.protobuf.Timestamp
+	(*types.Stat)(nil),                 // 76: fsutil.types.Stat
+	(*pb2.APICap)(nil),                 // 77: moby.buildkit.v1.apicaps.APICap
+	(*types1.WorkerRecord)(nil),        // 78: moby.buildkit.v1.types.WorkerRecord
+	(*pb.SourceInfo)(nil),              // 79: pb.SourceInfo
+	(*pb.Range)(nil),                   // 80: pb.Range
+	(*pb.Mount)(nil),                   // 81: pb.Mount
+	(pb.NetMode)(0),                    // 82: pb.NetMode
+	(*pb.WorkerConstraints)(nil),       // 83: pb.WorkerConstraints
+	(*pb.HostIP)(nil),                  // 84: pb.HostIP
+	(*pb.Meta)(nil),                    // 85: pb.Meta
+	(pb.SecurityMode)(0),               // 86: pb.SecurityMode
+	(*pb.SecretEnv)(nil),               // 87: pb.SecretEnv
 }
 var file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_depIdxs = []int32{
-	3,  // 0: moby.buildkit.v1.frontend.Result.refsDeprecated:type_name -> moby.buildkit.v1.frontend.RefMapDeprecated
-	4,  // 1: moby.buildkit.v1.frontend.Result.ref:type_name -> moby.buildkit.v1.frontend.Ref
-	5,  // 2: moby.buildkit.v1.frontend.Result.refs:type_name -> moby.buildkit.v1.frontend.RefMap
-	57, // 3: moby.buildkit.v1.frontend.Result.metadata:type_name -> moby.buildkit.v1.frontend.Result.MetadataEntry
-	58, // 4: moby.buildkit.v1.frontend.Result.attestations:type_name -> moby.buildkit.v1.frontend.Result.AttestationsEntry
-	59, // 5: moby.buildkit.v1.frontend.RefMapDeprecated.refs:type_name -> moby.buildkit.v1.frontend.RefMapDeprecated.RefsEntry
-	68, // 6: moby.buildkit.v1.frontend.Ref.def:type_name -> pb.Definition
-	60, // 7: moby.buildkit.v1.frontend.RefMap.refs:type_name -> moby.buildkit.v1.frontend.RefMap.RefsEntry
-	7,  // 8: moby.buildkit.v1.frontend.Attestations.attestation:type_name -> moby.buildkit.v1.frontend.Attestation
+	4,  // 0: moby.buildkit.v1.frontend.Result.refsDeprecated:type_name -> moby.buildkit.v1.frontend.RefMapDeprecated
+	5,  // 1: moby.buildkit.v1.frontend.Result.ref:type_name -> moby.buildkit.v1.frontend.Ref
+	6,  // 2: moby.buildkit.v1.frontend.Result.refs:type_name -> moby.buildkit.v1.frontend.RefMap
+	59, // 3: moby.buildkit.v1.frontend.Result.metadata:type_name -> moby.buildkit.v1.frontend.Result.MetadataEntry
+	60, // 4: moby.buildkit.v1.frontend.Result.attestations:type_name -> moby.buildkit.v1.frontend.Result.AttestationsEntry
+	61, // 5: moby.buildkit.v1.frontend.RefMapDeprecated.refs:type_name -> moby.buildkit.v1.frontend.RefMapDeprecated.RefsEntry
+	70, // 6: moby.buildkit.v1.frontend.Ref.def:type_name -> pb.Definition
+	62, // 7: moby.buildkit.v1.frontend.RefMap.refs:type_name -> moby.buildkit.v1.frontend.RefMap.RefsEntry
+	8,  // 8: moby.buildkit.v1.frontend.Attestations.attestation:type_name -> moby.buildkit.v1.frontend.Attestation
 	0,  // 9: moby.buildkit.v1.frontend.Attestation.kind:type_name -> moby.buildkit.v1.frontend.AttestationKind
-	61, // 10: moby.buildkit.v1.frontend.Attestation.metadata:type_name -> moby.buildkit.v1.frontend.Attestation.MetadataEntry
-	4,  // 11: moby.buildkit.v1.frontend.Attestation.ref:type_name -> moby.buildkit.v1.frontend.Ref
-	8,  // 12: moby.buildkit.v1.frontend.Attestation.inTotoSubjects:type_name -> moby.buildkit.v1.frontend.InTotoSubject
+	63, // 10: moby.buildkit.v1.frontend.Attestation.metadata:type_name -> moby.buildkit.v1.frontend.Attestation.MetadataEntry
+	5,  // 11: moby.buildkit.v1.frontend.Attestation.ref:type_name -> moby.buildkit.v1.frontend.Ref
+	9,  // 12: moby.buildkit.v1.frontend.Attestation.inTotoSubjects:type_name -> moby.buildkit.v1.frontend.InTotoSubject
 	1,  // 13: moby.buildkit.v1.frontend.InTotoSubject.kind:type_name -> moby.buildkit.v1.frontend.InTotoSubjectKind
-	2,  // 14: moby.buildkit.v1.frontend.ReturnRequest.result:type_name -> moby.buildkit.v1.frontend.Result
-	69, // 15: moby.buildkit.v1.frontend.ReturnRequest.error:type_name -> google.rpc.Status
-	2,  // 16: moby.buildkit.v1.frontend.ExportResponse.result:type_name -> moby.buildkit.v1.frontend.Result
-	56, // 17: moby.buildkit.v1.frontend.RemoteResponse.descriptors:type_name -> moby.buildkit.v1.frontend.Descriptor
-	62, // 18: moby.buildkit.v1.frontend.InputsResponse.Definitions:type_name -> moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry
-	70, // 19: moby.buildkit.v1.frontend.ResolveImageConfigRequest.Platform:type_name -> pb.Platform
-	71, // 20: moby.buildkit.v1.frontend.ResolveImageConfigRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
-	72, // 21: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Source:type_name -> pb.SourceOp
-	70, // 22: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Platform:type_name -> pb.Platform
-	24, // 23: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Git:type_name -> moby.buildkit.v1.frontend.ResolveSourceGitRequest
-	21, // 24: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Image:type_name -> moby.buildkit.v1.frontend.ResolveSourceImageRequest
-	71, // 25: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
-	72, // 26: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Source:type_name -> pb.SourceOp
-	23, // 27: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Image:type_name -> moby.buildkit.v1.frontend.ResolveSourceImageResponse
-	25, // 28: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Git:type_name -> moby.buildkit.v1.frontend.ResolveSourceGitResponse
-	26, // 29: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.HTTP:type_name -> moby.buildkit.v1.frontend.ResolveSourceHTTPResponse
-	63, // 30: moby.buildkit.v1.frontend.AttestationChain.Blobs:type_name -> moby.buildkit.v1.frontend.AttestationChain.BlobsEntry
-	22, // 31: moby.buildkit.v1.frontend.ResolveSourceImageResponse.AttestationChain:type_name -> moby.buildkit.v1.frontend.AttestationChain
-	73, // 32: moby.buildkit.v1.frontend.ResolveSourceHTTPResponse.LastModified:type_name -> google.protobuf.Timestamp
-	68, // 33: moby.buildkit.v1.frontend.SolveRequest.Definition:type_name -> pb.Definition
-	64, // 34: moby.buildkit.v1.frontend.SolveRequest.FrontendOpt:type_name -> moby.buildkit.v1.frontend.SolveRequest.FrontendOptEntry
-	28, // 35: moby.buildkit.v1.frontend.SolveRequest.CacheImports:type_name -> moby.buildkit.v1.frontend.CacheOptionsEntry
-	65, // 36: moby.buildkit.v1.frontend.SolveRequest.FrontendInputs:type_name -> moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry
-	71, // 37: moby.buildkit.v1.frontend.SolveRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
-	66, // 38: moby.buildkit.v1.frontend.CacheOptionsEntry.Attrs:type_name -> moby.buildkit.v1.frontend.CacheOptionsEntry.AttrsEntry
-	2,  // 39: moby.buildkit.v1.frontend.SolveResponse.result:type_name -> moby.buildkit.v1.frontend.Result
-	31, // 40: moby.buildkit.v1.frontend.ReadFileRequest.Range:type_name -> moby.buildkit.v1.frontend.FileRange
-	74, // 41: moby.buildkit.v1.frontend.ReadDirResponse.entries:type_name -> fsutil.types.Stat
-	74, // 42: moby.buildkit.v1.frontend.StatFileResponse.stat:type_name -> fsutil.types.Stat
-	75, // 43: moby.buildkit.v1.frontend.PongResponse.FrontendAPICaps:type_name -> moby.buildkit.v1.apicaps.APICap
-	75, // 44: moby.buildkit.v1.frontend.PongResponse.LLBCaps:type_name -> moby.buildkit.v1.apicaps.APICap
-	76, // 45: moby.buildkit.v1.frontend.PongResponse.Workers:type_name -> moby.buildkit.v1.types.WorkerRecord
-	77, // 46: moby.buildkit.v1.frontend.WarnRequest.info:type_name -> pb.SourceInfo
-	78, // 47: moby.buildkit.v1.frontend.WarnRequest.ranges:type_name -> pb.Range
-	79, // 48: moby.buildkit.v1.frontend.NewContainerRequest.Mounts:type_name -> pb.Mount
-	80, // 49: moby.buildkit.v1.frontend.NewContainerRequest.Network:type_name -> pb.NetMode
-	70, // 50: moby.buildkit.v1.frontend.NewContainerRequest.platform:type_name -> pb.Platform
-	81, // 51: moby.buildkit.v1.frontend.NewContainerRequest.constraints:type_name -> pb.WorkerConstraints
-	82, // 52: moby.buildkit.v1.frontend.NewContainerRequest.extraHosts:type_name -> pb.HostIP
-	48, // 53: moby.buildkit.v1.frontend.ExecMessage.Init:type_name -> moby.buildkit.v1.frontend.InitMessage
-	52, // 54: moby.buildkit.v1.frontend.ExecMessage.File:type_name -> moby.buildkit.v1.frontend.FdMessage
-	53, // 55: moby.buildkit.v1.frontend.ExecMessage.Resize:type_name -> moby.buildkit.v1.frontend.ResizeMessage
-	50, // 56: moby.buildkit.v1.frontend.ExecMessage.Started:type_name -> moby.buildkit.v1.frontend.StartedMessage
-	49, // 57: moby.buildkit.v1.frontend.ExecMessage.Exit:type_name -> moby.buildkit.v1.frontend.ExitMessage
-	51, // 58: moby.buildkit.v1.frontend.ExecMessage.Done:type_name -> moby.buildkit.v1.frontend.DoneMessage
-	54, // 59: moby.buildkit.v1.frontend.ExecMessage.Signal:type_name -> moby.buildkit.v1.frontend.SignalMessage
-	83, // 60: moby.buildkit.v1.frontend.InitMessage.Meta:type_name -> pb.Meta
-	84, // 61: moby.buildkit.v1.frontend.InitMessage.Security:type_name -> pb.SecurityMode
-	85, // 62: moby.buildkit.v1.frontend.InitMessage.secretenv:type_name -> pb.SecretEnv
-	69, // 63: moby.buildkit.v1.frontend.ExitMessage.Error:type_name -> google.rpc.Status
-	56, // 64: moby.buildkit.v1.frontend.Blob.descriptor:type_name -> moby.buildkit.v1.frontend.Descriptor
-	67, // 65: moby.buildkit.v1.frontend.Descriptor.annotations:type_name -> moby.buildkit.v1.frontend.Descriptor.AnnotationsEntry
-	6,  // 66: moby.buildkit.v1.frontend.Result.AttestationsEntry.value:type_name -> moby.buildkit.v1.frontend.Attestations
-	4,  // 67: moby.buildkit.v1.frontend.RefMap.RefsEntry.value:type_name -> moby.buildkit.v1.frontend.Ref
-	68, // 68: moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry.value:type_name -> pb.Definition
-	55, // 69: moby.buildkit.v1.frontend.AttestationChain.BlobsEntry.value:type_name -> moby.buildkit.v1.frontend.Blob
-	68, // 70: moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry.value:type_name -> pb.Definition
-	17, // 71: moby.buildkit.v1.frontend.LLBBridge.ResolveImageConfig:input_type -> moby.buildkit.v1.frontend.ResolveImageConfigRequest
-	19, // 72: moby.buildkit.v1.frontend.LLBBridge.ResolveSourceMeta:input_type -> moby.buildkit.v1.frontend.ResolveSourceMetaRequest
-	27, // 73: moby.buildkit.v1.frontend.LLBBridge.Solve:input_type -> moby.buildkit.v1.frontend.SolveRequest
-	30, // 74: moby.buildkit.v1.frontend.LLBBridge.ReadFile:input_type -> moby.buildkit.v1.frontend.ReadFileRequest
-	33, // 75: moby.buildkit.v1.frontend.LLBBridge.ReadDir:input_type -> moby.buildkit.v1.frontend.ReadDirRequest
-	35, // 76: moby.buildkit.v1.frontend.LLBBridge.StatFile:input_type -> moby.buildkit.v1.frontend.StatFileRequest
-	37, // 77: moby.buildkit.v1.frontend.LLBBridge.Evaluate:input_type -> moby.buildkit.v1.frontend.EvaluateRequest
-	39, // 78: moby.buildkit.v1.frontend.LLBBridge.Ping:input_type -> moby.buildkit.v1.frontend.PingRequest
-	9,  // 79: moby.buildkit.v1.frontend.LLBBridge.Return:input_type -> moby.buildkit.v1.frontend.ReturnRequest
-	15, // 80: moby.buildkit.v1.frontend.LLBBridge.Inputs:input_type -> moby.buildkit.v1.frontend.InputsRequest
-	11, // 81: moby.buildkit.v1.frontend.LLBBridge.Export:input_type -> moby.buildkit.v1.frontend.ExportRequest
-	13, // 82: moby.buildkit.v1.frontend.LLBBridge.Remote:input_type -> moby.buildkit.v1.frontend.RemoteRequest
-	43, // 83: moby.buildkit.v1.frontend.LLBBridge.NewContainer:input_type -> moby.buildkit.v1.frontend.NewContainerRequest
-	45, // 84: moby.buildkit.v1.frontend.LLBBridge.ReleaseContainer:input_type -> moby.buildkit.v1.frontend.ReleaseContainerRequest
-	47, // 85: moby.buildkit.v1.frontend.LLBBridge.ExecProcess:input_type -> moby.buildkit.v1.frontend.ExecMessage
-	41, // 86: moby.buildkit.v1.frontend.LLBBridge.Warn:input_type -> moby.buildkit.v1.frontend.WarnRequest
-	18, // 87: moby.buildkit.v1.frontend.LLBBridge.ResolveImageConfig:output_type -> moby.buildkit.v1.frontend.ResolveImageConfigResponse
-	20, // 88: moby.buildkit.v1.frontend.LLBBridge.ResolveSourceMeta:output_type -> moby.buildkit.v1.frontend.ResolveSourceMetaResponse
-	29, // 89: moby.buildkit.v1.frontend.LLBBridge.Solve:output_type -> moby.buildkit.v1.frontend.SolveResponse
-	32, // 90: moby.buildkit.v1.frontend.LLBBridge.ReadFile:output_type -> moby.buildkit.v1.frontend.ReadFileResponse
-	34, // 91: moby.buildkit.v1.frontend.LLBBridge.ReadDir:output_type -> moby.buildkit.v1.frontend.ReadDirResponse
-	36, // 92: moby.buildkit.v1.frontend.LLBBridge.StatFile:output_type -> moby.buildkit.v1.frontend.StatFileResponse
-	38, // 93: moby.buildkit.v1.frontend.LLBBridge.Evaluate:output_type -> moby.buildkit.v1.frontend.EvaluateResponse
-	40, // 94: moby.buildkit.v1.frontend.LLBBridge.Ping:output_type -> moby.buildkit.v1.frontend.PongResponse
-	10, // 95: moby.buildkit.v1.frontend.LLBBridge.Return:output_type -> moby.buildkit.v1.frontend.ReturnResponse
-	16, // 96: moby.buildkit.v1.frontend.LLBBridge.Inputs:output_type -> moby.buildkit.v1.frontend.InputsResponse
-	12, // 97: moby.buildkit.v1.frontend.LLBBridge.Export:output_type -> moby.buildkit.v1.frontend.ExportResponse
-	14, // 98: moby.buildkit.v1.frontend.LLBBridge.Remote:output_type -> moby.buildkit.v1.frontend.RemoteResponse
-	44, // 99: moby.buildkit.v1.frontend.LLBBridge.NewContainer:output_type -> moby.buildkit.v1.frontend.NewContainerResponse
-	46, // 100: moby.buildkit.v1.frontend.LLBBridge.ReleaseContainer:output_type -> moby.buildkit.v1.frontend.ReleaseContainerResponse
-	47, // 101: moby.buildkit.v1.frontend.LLBBridge.ExecProcess:output_type -> moby.buildkit.v1.frontend.ExecMessage
-	42, // 102: moby.buildkit.v1.frontend.LLBBridge.Warn:output_type -> moby.buildkit.v1.frontend.WarnResponse
-	87, // [87:103] is the sub-list for method output_type
-	71, // [71:87] is the sub-list for method input_type
-	71, // [71:71] is the sub-list for extension type_name
-	71, // [71:71] is the sub-list for extension extendee
-	0,  // [0:71] is the sub-list for field type_name
+	3,  // 14: moby.buildkit.v1.frontend.ReturnRequest.result:type_name -> moby.buildkit.v1.frontend.Result
+	71, // 15: moby.buildkit.v1.frontend.ReturnRequest.error:type_name -> google.rpc.Status
+	3,  // 16: moby.buildkit.v1.frontend.GetReturnResponse.result:type_name -> moby.buildkit.v1.frontend.Result
+	64, // 17: moby.buildkit.v1.frontend.InputsResponse.Definitions:type_name -> moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry
+	72, // 18: moby.buildkit.v1.frontend.ResolveImageConfigRequest.Platform:type_name -> pb.Platform
+	73, // 19: moby.buildkit.v1.frontend.ResolveImageConfigRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
+	74, // 20: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Source:type_name -> pb.SourceOp
+	72, // 21: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Platform:type_name -> pb.Platform
+	23, // 22: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Git:type_name -> moby.buildkit.v1.frontend.ResolveSourceGitRequest
+	20, // 23: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.Image:type_name -> moby.buildkit.v1.frontend.ResolveSourceImageRequest
+	73, // 24: moby.buildkit.v1.frontend.ResolveSourceMetaRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
+	74, // 25: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Source:type_name -> pb.SourceOp
+	22, // 26: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Image:type_name -> moby.buildkit.v1.frontend.ResolveSourceImageResponse
+	24, // 27: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.Git:type_name -> moby.buildkit.v1.frontend.ResolveSourceGitResponse
+	25, // 28: moby.buildkit.v1.frontend.ResolveSourceMetaResponse.HTTP:type_name -> moby.buildkit.v1.frontend.ResolveSourceHTTPResponse
+	65, // 29: moby.buildkit.v1.frontend.AttestationChain.Blobs:type_name -> moby.buildkit.v1.frontend.AttestationChain.BlobsEntry
+	21, // 30: moby.buildkit.v1.frontend.ResolveSourceImageResponse.AttestationChain:type_name -> moby.buildkit.v1.frontend.AttestationChain
+	75, // 31: moby.buildkit.v1.frontend.ResolveSourceHTTPResponse.LastModified:type_name -> google.protobuf.Timestamp
+	70, // 32: moby.buildkit.v1.frontend.SolveRequest.Definition:type_name -> pb.Definition
+	66, // 33: moby.buildkit.v1.frontend.SolveRequest.FrontendOpt:type_name -> moby.buildkit.v1.frontend.SolveRequest.FrontendOptEntry
+	27, // 34: moby.buildkit.v1.frontend.SolveRequest.CacheImports:type_name -> moby.buildkit.v1.frontend.CacheOptionsEntry
+	67, // 35: moby.buildkit.v1.frontend.SolveRequest.FrontendInputs:type_name -> moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry
+	73, // 36: moby.buildkit.v1.frontend.SolveRequest.SourcePolicies:type_name -> moby.buildkit.v1.sourcepolicy.Policy
+	68, // 37: moby.buildkit.v1.frontend.CacheOptionsEntry.Attrs:type_name -> moby.buildkit.v1.frontend.CacheOptionsEntry.AttrsEntry
+	3,  // 38: moby.buildkit.v1.frontend.SolveResponse.result:type_name -> moby.buildkit.v1.frontend.Result
+	30, // 39: moby.buildkit.v1.frontend.ReadFileRequest.Range:type_name -> moby.buildkit.v1.frontend.FileRange
+	76, // 40: moby.buildkit.v1.frontend.ReadDirResponse.entries:type_name -> fsutil.types.Stat
+	76, // 41: moby.buildkit.v1.frontend.StatFileResponse.stat:type_name -> fsutil.types.Stat
+	58, // 42: moby.buildkit.v1.frontend.GetRemoteRequest.compression:type_name -> moby.buildkit.v1.frontend.Compression
+	57, // 43: moby.buildkit.v1.frontend.GetRemoteResponse.descriptors:type_name -> moby.buildkit.v1.frontend.Descriptor
+	77, // 44: moby.buildkit.v1.frontend.PongResponse.FrontendAPICaps:type_name -> moby.buildkit.v1.apicaps.APICap
+	77, // 45: moby.buildkit.v1.frontend.PongResponse.LLBCaps:type_name -> moby.buildkit.v1.apicaps.APICap
+	78, // 46: moby.buildkit.v1.frontend.PongResponse.Workers:type_name -> moby.buildkit.v1.types.WorkerRecord
+	79, // 47: moby.buildkit.v1.frontend.WarnRequest.info:type_name -> pb.SourceInfo
+	80, // 48: moby.buildkit.v1.frontend.WarnRequest.ranges:type_name -> pb.Range
+	81, // 49: moby.buildkit.v1.frontend.NewContainerRequest.Mounts:type_name -> pb.Mount
+	82, // 50: moby.buildkit.v1.frontend.NewContainerRequest.Network:type_name -> pb.NetMode
+	72, // 51: moby.buildkit.v1.frontend.NewContainerRequest.platform:type_name -> pb.Platform
+	83, // 52: moby.buildkit.v1.frontend.NewContainerRequest.constraints:type_name -> pb.WorkerConstraints
+	84, // 53: moby.buildkit.v1.frontend.NewContainerRequest.extraHosts:type_name -> pb.HostIP
+	49, // 54: moby.buildkit.v1.frontend.ExecMessage.Init:type_name -> moby.buildkit.v1.frontend.InitMessage
+	53, // 55: moby.buildkit.v1.frontend.ExecMessage.File:type_name -> moby.buildkit.v1.frontend.FdMessage
+	54, // 56: moby.buildkit.v1.frontend.ExecMessage.Resize:type_name -> moby.buildkit.v1.frontend.ResizeMessage
+	51, // 57: moby.buildkit.v1.frontend.ExecMessage.Started:type_name -> moby.buildkit.v1.frontend.StartedMessage
+	50, // 58: moby.buildkit.v1.frontend.ExecMessage.Exit:type_name -> moby.buildkit.v1.frontend.ExitMessage
+	52, // 59: moby.buildkit.v1.frontend.ExecMessage.Done:type_name -> moby.buildkit.v1.frontend.DoneMessage
+	55, // 60: moby.buildkit.v1.frontend.ExecMessage.Signal:type_name -> moby.buildkit.v1.frontend.SignalMessage
+	85, // 61: moby.buildkit.v1.frontend.InitMessage.Meta:type_name -> pb.Meta
+	86, // 62: moby.buildkit.v1.frontend.InitMessage.Security:type_name -> pb.SecurityMode
+	87, // 63: moby.buildkit.v1.frontend.InitMessage.secretenv:type_name -> pb.SecretEnv
+	71, // 64: moby.buildkit.v1.frontend.ExitMessage.Error:type_name -> google.rpc.Status
+	57, // 65: moby.buildkit.v1.frontend.Blob.descriptor:type_name -> moby.buildkit.v1.frontend.Descriptor
+	69, // 66: moby.buildkit.v1.frontend.Descriptor.annotations:type_name -> moby.buildkit.v1.frontend.Descriptor.AnnotationsEntry
+	2,  // 67: moby.buildkit.v1.frontend.Compression.type:type_name -> moby.buildkit.v1.frontend.Compression.Type
+	7,  // 68: moby.buildkit.v1.frontend.Result.AttestationsEntry.value:type_name -> moby.buildkit.v1.frontend.Attestations
+	5,  // 69: moby.buildkit.v1.frontend.RefMap.RefsEntry.value:type_name -> moby.buildkit.v1.frontend.Ref
+	70, // 70: moby.buildkit.v1.frontend.InputsResponse.DefinitionsEntry.value:type_name -> pb.Definition
+	56, // 71: moby.buildkit.v1.frontend.AttestationChain.BlobsEntry.value:type_name -> moby.buildkit.v1.frontend.Blob
+	70, // 72: moby.buildkit.v1.frontend.SolveRequest.FrontendInputsEntry.value:type_name -> pb.Definition
+	16, // 73: moby.buildkit.v1.frontend.LLBBridge.ResolveImageConfig:input_type -> moby.buildkit.v1.frontend.ResolveImageConfigRequest
+	18, // 74: moby.buildkit.v1.frontend.LLBBridge.ResolveSourceMeta:input_type -> moby.buildkit.v1.frontend.ResolveSourceMetaRequest
+	26, // 75: moby.buildkit.v1.frontend.LLBBridge.Solve:input_type -> moby.buildkit.v1.frontend.SolveRequest
+	29, // 76: moby.buildkit.v1.frontend.LLBBridge.ReadFile:input_type -> moby.buildkit.v1.frontend.ReadFileRequest
+	32, // 77: moby.buildkit.v1.frontend.LLBBridge.ReadDir:input_type -> moby.buildkit.v1.frontend.ReadDirRequest
+	34, // 78: moby.buildkit.v1.frontend.LLBBridge.StatFile:input_type -> moby.buildkit.v1.frontend.StatFileRequest
+	36, // 79: moby.buildkit.v1.frontend.LLBBridge.Evaluate:input_type -> moby.buildkit.v1.frontend.EvaluateRequest
+	38, // 80: moby.buildkit.v1.frontend.LLBBridge.GetRemote:input_type -> moby.buildkit.v1.frontend.GetRemoteRequest
+	40, // 81: moby.buildkit.v1.frontend.LLBBridge.Ping:input_type -> moby.buildkit.v1.frontend.PingRequest
+	10, // 82: moby.buildkit.v1.frontend.LLBBridge.Return:input_type -> moby.buildkit.v1.frontend.ReturnRequest
+	12, // 83: moby.buildkit.v1.frontend.LLBBridge.GetReturn:input_type -> moby.buildkit.v1.frontend.GetReturnRequest
+	14, // 84: moby.buildkit.v1.frontend.LLBBridge.Inputs:input_type -> moby.buildkit.v1.frontend.InputsRequest
+	44, // 85: moby.buildkit.v1.frontend.LLBBridge.NewContainer:input_type -> moby.buildkit.v1.frontend.NewContainerRequest
+	46, // 86: moby.buildkit.v1.frontend.LLBBridge.ReleaseContainer:input_type -> moby.buildkit.v1.frontend.ReleaseContainerRequest
+	48, // 87: moby.buildkit.v1.frontend.LLBBridge.ExecProcess:input_type -> moby.buildkit.v1.frontend.ExecMessage
+	42, // 88: moby.buildkit.v1.frontend.LLBBridge.Warn:input_type -> moby.buildkit.v1.frontend.WarnRequest
+	17, // 89: moby.buildkit.v1.frontend.LLBBridge.ResolveImageConfig:output_type -> moby.buildkit.v1.frontend.ResolveImageConfigResponse
+	19, // 90: moby.buildkit.v1.frontend.LLBBridge.ResolveSourceMeta:output_type -> moby.buildkit.v1.frontend.ResolveSourceMetaResponse
+	28, // 91: moby.buildkit.v1.frontend.LLBBridge.Solve:output_type -> moby.buildkit.v1.frontend.SolveResponse
+	31, // 92: moby.buildkit.v1.frontend.LLBBridge.ReadFile:output_type -> moby.buildkit.v1.frontend.ReadFileResponse
+	33, // 93: moby.buildkit.v1.frontend.LLBBridge.ReadDir:output_type -> moby.buildkit.v1.frontend.ReadDirResponse
+	35, // 94: moby.buildkit.v1.frontend.LLBBridge.StatFile:output_type -> moby.buildkit.v1.frontend.StatFileResponse
+	37, // 95: moby.buildkit.v1.frontend.LLBBridge.Evaluate:output_type -> moby.buildkit.v1.frontend.EvaluateResponse
+	39, // 96: moby.buildkit.v1.frontend.LLBBridge.GetRemote:output_type -> moby.buildkit.v1.frontend.GetRemoteResponse
+	41, // 97: moby.buildkit.v1.frontend.LLBBridge.Ping:output_type -> moby.buildkit.v1.frontend.PongResponse
+	11, // 98: moby.buildkit.v1.frontend.LLBBridge.Return:output_type -> moby.buildkit.v1.frontend.ReturnResponse
+	13, // 99: moby.buildkit.v1.frontend.LLBBridge.GetReturn:output_type -> moby.buildkit.v1.frontend.GetReturnResponse
+	15, // 100: moby.buildkit.v1.frontend.LLBBridge.Inputs:output_type -> moby.buildkit.v1.frontend.InputsResponse
+	45, // 101: moby.buildkit.v1.frontend.LLBBridge.NewContainer:output_type -> moby.buildkit.v1.frontend.NewContainerResponse
+	47, // 102: moby.buildkit.v1.frontend.LLBBridge.ReleaseContainer:output_type -> moby.buildkit.v1.frontend.ReleaseContainerResponse
+	48, // 103: moby.buildkit.v1.frontend.LLBBridge.ExecProcess:output_type -> moby.buildkit.v1.frontend.ExecMessage
+	43, // 104: moby.buildkit.v1.frontend.LLBBridge.Warn:output_type -> moby.buildkit.v1.frontend.WarnResponse
+	89, // [89:105] is the sub-list for method output_type
+	73, // [73:89] is the sub-list for method input_type
+	73, // [73:73] is the sub-list for extension type_name
+	73, // [73:73] is the sub-list for extension extendee
+	0,  // [0:73] is the sub-list for field type_name
 }
 
 func init() { file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_init() }
@@ -3892,8 +4026,8 @@ func file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc), len(file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   66,
+			NumEnums:      3,
+			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

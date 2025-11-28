@@ -27,12 +27,14 @@ service LLBBridge {
 	rpc StatFile(StatFileRequest) returns (StatFileResponse);
 	// apicaps:CapGatewayEvaluate
 	rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+	// apicaps:CapGatewayGetRemote
+	rpc GetRemote(GetRemoteRequest) returns (GetRemoteResponse);
 	rpc Ping(PingRequest) returns (PongResponse);
 	rpc Return(ReturnRequest) returns (ReturnResponse);
+	// apicaps:CapGatewayGetReturn
+	rpc GetReturn(GetReturnRequest) returns (GetReturnResponse);
 	// apicaps:CapFrontendInputs
 	rpc Inputs(InputsRequest) returns (InputsResponse);
-	rpc Export(ExportRequest) returns (ExportResponse);
-	rpc Remote(RemoteRequest) returns (RemoteResponse);
 
 	rpc NewContainer(NewContainerRequest) returns (NewContainerResponse);
 	rpc ReleaseContainer(ReleaseContainerRequest) returns (ReleaseContainerResponse);
@@ -108,19 +110,11 @@ message ReturnRequest {
 message ReturnResponse {
 }
 
-message ExportRequest {
+message GetReturnRequest {
 }
 
-message ExportResponse {
+message GetReturnResponse {
 	Result result = 1;
-}
-
-message RemoteRequest {
-	string Ref = 1;
-}
-
-message RemoteResponse {
-	repeated Descriptor descriptors = 1;
 }
 
 message InputsRequest {
@@ -282,6 +276,15 @@ message EvaluateRequest {
 message EvaluateResponse {
 }
 
+message GetRemoteRequest {
+	string Ref = 1;
+	Compression compression = 2;
+}
+
+message GetRemoteResponse {
+	repeated Descriptor descriptors = 1;
+}
+
 message PingRequest{
 }
 message PongResponse{
@@ -391,4 +394,17 @@ message Descriptor {
 	string digest = 2;
 	int64 size = 3;
 	map<string, string> annotations = 5;
+}
+
+message Compression {
+	enum Type {
+		NONE = 0;
+		GZIP = 1;
+		ESTARGZ = 2;
+		ZSTD = 3;
+	}
+
+	Type type = 1;
+	bool force = 2;
+	int32 level = 3;
 }

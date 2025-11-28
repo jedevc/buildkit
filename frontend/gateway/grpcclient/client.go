@@ -40,7 +40,9 @@ const frontendPrefix = "BUILDKIT_FRONTEND_OPT_"
 
 type GrpcClient interface {
 	client.Client
-	Run(context.Context, client.BuildFunc) error
+
+	Build(context.Context, client.BuildFunc) error
+	Export(context.Context, *grpc.ClientConn, client.ExportFunc) error
 }
 
 func New(ctx context.Context, opts map[string]string, session, product string, c pb.LLBBridgeClient, w []client.WorkerInfo) (GrpcClient, error) {
@@ -102,23 +104,20 @@ func convertRef(ref client.Reference) (*pb.Ref, error) {
 	return &pb.Ref{Id: r.id, Def: r.def}, nil
 }
 
-func NewFromEnvironment() (client.Client, *grpc.ClientConn, error) {
-	client, conn, err := current()
-	if err != nil {
-		return nil, conn, errors.Wrapf(err, "failed to initialize client from environment")
-	}
-	return client, conn, nil
+// Deprecated: use BuildFromEnvironment
+func RunFromEnvironment(ctx context.Context, f client.BuildFunc) error {
+	return BuildFromEnvironment(ctx, f)
 }
 
-func RunFromEnvironment(ctx context.Context, f client.BuildFunc) error {
+func BuildFromEnvironment(ctx context.Context, f client.BuildFunc) error {
 	client, _, err := current()
 	if err != nil {
 		return errors.Wrapf(err, "failed to initialize client from environment")
 	}
-	return client.Run(ctx, f)
+	return client.Build(ctx, f)
 }
 
-func (c *grpcClient) Run(ctx context.Context, f client.BuildFunc) (retError error) {
+func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (retError error) {
 	export := c.caps.Supports(pb.CapReturnResult) == nil
 
 	var (
@@ -258,6 +257,35 @@ func (c *grpcClient) Run(ctx context.Context, f client.BuildFunc) (retError erro
 	}
 
 	return nil
+}
+
+func ExportFromEnvironment(ctx context.Context, f client.ExportFunc) error {
+	client, conn, err := current()
+	if err != nil {
+		return errors.Wrapf(err, "failed to initialize client from environment")
+	}
+	return client.Export(ctx, conn, f)
+}
+
+func (c *grpcClient) Export(ctx context.Context, conn *grpc.ClientConn, f client.ExportFunc) (retError error) {
+	export := c.caps.Supports(pb.CapGatewayGetReturn) == nil
+	if !export {
+		return errors.New("gateway does not support export")
+	}
+
+	resp, err := c.client.GetReturn(ctx, &pb.GetReturnRequest{})
+	if err != nil {
+		return err
+	}
+	result, err := c.loadResult(resp.Result)
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return fmt.Errorf("no result returned from gateway")
+	}
+
+	return f(ctx, c, conn, result)
 }
 
 // defaultCaps returns the capabilities that were implemented when capabilities
@@ -763,8 +791,8 @@ func (c *grpcClient) Inputs(ctx context.Context) (map[string]llb.State, error) {
 	return inputs, nil
 }
 
-func (c *grpcClient) Export(ctx context.Context) (*client.Result, error) {
-	result, err := c.client.Export(ctx, &pb.ExportRequest{})
+func (c *grpcClient) GetReturn(ctx context.Context) (*client.Result, error) {
+	result, err := c.client.GetReturn(ctx, &pb.GetReturnRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -1344,8 +1372,8 @@ func (r *reference) StatFile(ctx context.Context, req client.StatRequest) (*fsty
 	return resp.Stat, nil
 }
 
-func (r *reference) Remote(ctx context.Context) ([]ocispecs.Descriptor, error) {
-	resp, err := r.c.client.Remote(ctx, &pb.RemoteRequest{Ref: r.id})
+func (r *reference) GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error) {
+	resp, err := r.c.client.GetRemote(ctx, &pb.GetRemoteRequest{Ref: r.id})
 	if err != nil {
 		return nil, err
 	}

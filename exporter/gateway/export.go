@@ -29,12 +29,12 @@ import (
 	"github.com/moby/buildkit/util/progress/logs"
 	"github.com/moby/buildkit/worker"
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
 const (
-	keyImage = "image"
+	keySource = "source"
 )
 
 type Opt struct {
@@ -69,7 +69,7 @@ func (e *gatewayExporter) Resolve(ctx context.Context, id int, frontendAttrs map
 
 	for k, v := range exporterAttrs {
 		switch k {
-		case keyImage:
+		case keySource:
 			i.image = v
 
 		default:

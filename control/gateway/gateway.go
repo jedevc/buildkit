@@ -130,6 +130,14 @@ func (gwf *GatewayForwarder) Evaluate(ctx context.Context, req *gwapi.EvaluateRe
 	return fwd.Evaluate(ctx, req)
 }
 
+func (gwf *GatewayForwarder) GetRemote(ctx context.Context, req *gwapi.GetRemoteRequest) (*gwapi.GetRemoteResponse, error) {
+	fwd, err := gwf.lookupForwarder(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "forwarding GetRemote")
+	}
+	return fwd.GetRemote(ctx, req)
+}
+
 func (gwf *GatewayForwarder) Ping(ctx context.Context, req *gwapi.PingRequest) (*gwapi.PongResponse, error) {
 	fwd, err := gwf.lookupForwarder(ctx)
 	if err != nil {
@@ -147,6 +155,14 @@ func (gwf *GatewayForwarder) Return(ctx context.Context, req *gwapi.ReturnReques
 	return res, err
 }
 
+func (gwf *GatewayForwarder) GetReturn(ctx context.Context, req *gwapi.GetReturnRequest) (*gwapi.GetReturnResponse, error) {
+	fwd, err := gwf.lookupForwarder(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "forwarding GetReturn")
+	}
+	return fwd.GetReturn(ctx, req)
+}
+
 func (gwf *GatewayForwarder) Inputs(ctx context.Context, req *gwapi.InputsRequest) (*gwapi.InputsResponse, error) {
 	fwd, err := gwf.lookupForwarder(ctx)
 	if err != nil {
@@ -154,22 +170,6 @@ func (gwf *GatewayForwarder) Inputs(ctx context.Context, req *gwapi.InputsReques
 	}
 	res, err := fwd.Inputs(ctx, req)
 	return res, err
-}
-
-func (gwf *GatewayForwarder) Export(ctx context.Context, req *gwapi.ExportRequest) (*gwapi.ExportResponse, error) {
-	fwd, err := gwf.lookupForwarder(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "forwarding Export")
-	}
-	return fwd.Export(ctx, req)
-}
-
-func (gwf *GatewayForwarder) Remote(ctx context.Context, req *gwapi.RemoteRequest) (*gwapi.RemoteResponse, error) {
-	fwd, err := gwf.lookupForwarder(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "forwarding Remote")
-	}
-	return fwd.Remote(ctx, req)
 }
 
 func (gwf *GatewayForwarder) ReadDir(ctx context.Context, req *gwapi.ReadDirRequest) (*gwapi.ReadDirResponse, error) {
