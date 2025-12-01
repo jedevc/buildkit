@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -16,7 +17,10 @@ import (
 	"github.com/moby/buildkit/util/appcontext"
 	"github.com/moby/buildkit/util/bklog"
 	_ "github.com/moby/buildkit/util/grpcutil/encoding/proto"
+	"github.com/moby/buildkit/util/staticfs"
 	"github.com/pkg/errors"
+	"github.com/tonistiigi/fsutil"
+	"github.com/tonistiigi/fsutil/types"
 	"google.golang.org/grpc"
 )
 
@@ -27,7 +31,7 @@ func main() {
 	}
 }
 
-func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, result *client.Result) (err error) {
+func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target exptypes.ExporterTarget, result *client.Result) (err error) {
 	opts := c.BuildOpts().Opts
 	if opts == nil {
 		opts = map[string]string{}
@@ -89,27 +93,56 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, result 
 		return errors.Wrap(err, "failed to read dir")
 	}
 
-	client := filesync.NewFileSendClient(conn)
-	cc, err := client.DiffCopy(ctx)
-	if err != nil {
-		return err
-	}
-	w := filesync.NewStreamWriter(cc)
-
-	for _, fi := range stats {
-		path := fi.Path
-		if fi.IsDir() {
-			path += "/"
-		}
-		fmt.Fprintln(os.Stderr, path)
-		_, err = fmt.Fprintln(w, path)
+	switch target {
+	case exptypes.ExporterTargetNone:
+	case exptypes.ExporterTargetFile:
+		client := filesync.NewFileSendClient(conn)
+		cc, err := client.DiffCopy(ctx)
 		if err != nil {
 			return err
 		}
-	}
+		w := filesync.NewStreamWriter(cc)
 
-	if err := w.Close(); err != nil {
-		return err
+		for _, fi := range stats {
+			path := fi.Path
+			if fi.IsDir() {
+				path += "/"
+			}
+			fmt.Fprintln(os.Stderr, path)
+			_, err = fmt.Fprintln(w, path)
+			if err != nil {
+				return err
+			}
+		}
+
+		if err := w.Close(); err != nil {
+			return err
+		}
+	case exptypes.ExporterTargetDirectory:
+		client := filesync.NewFileSendClient(conn)
+		cc, err := client.DiffCopy(ctx)
+		if err != nil {
+			return err
+		}
+
+		w := &bytes.Buffer{}
+		for _, fi := range stats {
+			path := fi.Path
+			if fi.IsDir() {
+				path += "/"
+			}
+			fmt.Fprintln(os.Stderr, path)
+			_, err = fmt.Fprintln(w, path)
+			if err != nil {
+				return err
+			}
+		}
+
+		fs := staticfs.NewFS()
+		fs.Add("foo", &types.Stat{Mode: 0644}, w.Bytes())
+		return errors.WithStack(fsutil.Send(cc.Context(), cc, fs, nil))
+	default:
+		return errors.Errorf("unsupported export target: %s", target)
 	}
 
 	return nil

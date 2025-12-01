@@ -23,6 +23,7 @@ import (
 	"github.com/moby/buildkit/frontend/gateway/container"
 	"github.com/moby/buildkit/frontend/gateway/forwarder"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/filesync"
 	"github.com/moby/buildkit/solver"
 	opspb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
@@ -31,6 +32,7 @@ import (
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	fstypes "github.com/tonistiigi/fsutil/types"
 )
 
 const (
@@ -55,11 +57,12 @@ func New(opt Opt) (exporter.Exporter, error) {
 	return im, nil
 }
 
-func (e *gatewayExporter) Resolve(ctx context.Context, id int, frontendAttrs map[string]string, exporterAttrs map[string]string) (exporter.ExporterInstance, error) {
+func (e *gatewayExporter) Resolve(ctx context.Context, id int, frontendAttrs map[string]string, exporterAttrs map[string]string, target exptypes.ExporterTarget) (exporter.ExporterInstance, error) {
 	i := &gatewayExporterInstance{
 		gatewayExporter: e,
 		id:              id,
 		frontendAttrs:   frontendAttrs,
+		target:          target,
 		attrs:           exporterAttrs,
 		workerInfo: workerInfo{
 			cm:   e.opt.CacheManager,
@@ -86,6 +89,7 @@ type gatewayExporterInstance struct {
 	*gatewayExporter
 	id            int
 	workerInfo    worker.Infos
+	target        exptypes.ExporterTarget
 	frontendAttrs map[string]string
 	attrs         map[string]string
 
@@ -110,10 +114,15 @@ func (e *gatewayExporterInstance) Attrs() map[string]string {
 	return e.attrs
 }
 
+func (e *gatewayExporterInstance) Target() exptypes.ExporterTarget {
+	return e.target
+}
+
 func (e *gatewayExporterInstance) Config() *exporter.Config {
 	return exporter.NewConfig()
 }
 
+// XXX: dedupe with frontend/gateway/gateway.go
 func (e *gatewayExporterInstance) getImage(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, sessionID string, source string) (st *llb.State, img *dockerspec.DockerOCIImage, mfstDigest digest.Digest, err error) {
 	c, err := forwarder.LLBBridgeToGatewayClient(ctx, llbBridge, exec, e.frontendAttrs, nil, e.workerInfo, sessionID, e.opt.SessionManager)
 	if err != nil {
@@ -248,6 +257,8 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 
 	env = append(env, "BUILDKIT_EXPORTEDPRODUCT="+apicaps.ExportedProduct)
 
+	env = append(env, "BUILDKIT_EXPORTER_TARGET="+e.Target().String())
+
 	meta := executor.Meta{
 		Env:  env,
 		Args: args,
@@ -282,7 +293,16 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 
 	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
 	lbf.SetResult(src.FrontendResult)
-	ctx = lbf.Serve(ctx, &SyncTarget{Caller: caller, ExporterID: e.id}, &Store{e.opt.ImageWriter.ContentStore()})
+
+	attachables := []session.Attachable{}
+	switch e.target {
+	case exptypes.ExporterTargetFile:
+		attachables = append(attachables, &SyncTarget[filesync.BytesMessage]{Caller: caller, ExporterID: e.id})
+	case exptypes.ExporterTargetDirectory:
+		attachables = append(attachables, &SyncTarget[fstypes.Packet]{Caller: caller, ExporterID: e.id})
+	}
+	attachables = append(attachables, &Store{e.opt.ImageWriter.ContentStore()})
+	ctx = lbf.Serve(ctx, attachables...)
 	// defer lbf.conn.Close() // XXX:
 	defer lbf.Discard()
 

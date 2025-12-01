@@ -7,6 +7,7 @@ import (
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
+	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/solver/result"
 	spb "github.com/moby/buildkit/sourcepolicy/pb"
@@ -24,7 +25,7 @@ type Attestation = result.Attestation[Reference]
 type BuildFunc func(context.Context, Client) (*Result, error)
 
 // XXX: weird that grpc is here
-type ExportFunc func(context.Context, Client, *grpc.ClientConn, *Result) error
+type ExportFunc func(context.Context, Client, *grpc.ClientConn, exptypes.ExporterTarget, *Result) error
 
 func NewResult() *Result {
 	return &Result{}

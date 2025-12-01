@@ -194,8 +194,9 @@ func (s *Solver) recordBuildHistory(ctx context.Context, id string, req frontend
 
 	for _, e := range exp.Exporters {
 		rec.Exporters = append(rec.Exporters, &controlapi.Exporter{
-			Type:  e.Type(),
-			Attrs: e.Attrs(),
+			Type:   e.Type(),
+			Attrs:  e.Attrs(),
+			Target: controlapi.ExporterTargetToPB(e.Target()),
 		})
 	}
 
@@ -745,12 +746,13 @@ func (s *Solver) getSessionExporters(ctx context.Context, sessionID string, id i
 	}
 
 	var out []exporter.ExporterInstance
-	for i, exporter := range res.Exporters {
-		exp, err := w.Exporter(exporter.Type, s.sm)
+	for i, expReq := range res.Exporters {
+		exp, err := w.Exporter(expReq.Type, s.sm)
 		if err != nil {
 			return nil, err
 		}
-		expi, err := exp.Resolve(ctx, id+i, req.FrontendOpt, exporter.Attrs)
+		// XXX: update to pass the info properly here
+		expi, err := exp.Resolve(ctx, id+i, req.FrontendOpt, expReq.Attrs, exptypes.ExporterTargetUnknown)
 		if err != nil {
 			return nil, err
 		}

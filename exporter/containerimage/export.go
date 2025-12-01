@@ -70,7 +70,11 @@ func New(opt Opt) (exporter.Exporter, error) {
 	return im, nil
 }
 
-func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string, opt map[string]string) (exporter.ExporterInstance, error) {
+func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string, opt map[string]string, target exptypes.ExporterTarget) (exporter.ExporterInstance, error) {
+	if target != exptypes.ExporterTargetUnknown && target != exptypes.ExporterTargetNone {
+		return nil, errors.New("image exporter does not support client target")
+	}
+
 	i := &imageExporterInstance{
 		imageExporter: e,
 		id:            id,
@@ -219,6 +223,10 @@ func (e *imageExporterInstance) Type() string {
 
 func (e *imageExporterInstance) Attrs() map[string]string {
 	return e.attrs
+}
+
+func (e *imageExporterInstance) Target() exptypes.ExporterTarget {
+	return exptypes.ExporterTargetNone
 }
 
 func (e *imageExporterInstance) Export(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, src *exporter.Source, inlineCache exptypes.InlineCache, sessionID string) (_ map[string]string, descref exporter.DescriptorReference, err error) {

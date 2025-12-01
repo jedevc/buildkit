@@ -30,7 +30,7 @@ func (src *Source) Clone() *Source {
 type Attestation = result.Attestation[cache.ImmutableRef]
 
 type Exporter interface {
-	Resolve(ctx context.Context, id int, frontendAttrs map[string]string, exporterAttrs map[string]string) (ExporterInstance, error)
+	Resolve(ctx context.Context, id int, frontendAttrs map[string]string, exporterAttrs map[string]string, target exptypes.ExporterTarget) (ExporterInstance, error)
 }
 
 type ExporterInstance interface {
@@ -39,6 +39,7 @@ type ExporterInstance interface {
 	Config() *Config
 	Type() string
 	Attrs() map[string]string
+	Target() exptypes.ExporterTarget
 	Export(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, src *Source, inlineCache exptypes.InlineCache, sessionID string) (map[string]string, DescriptorReference, error)
 }
 

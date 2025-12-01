@@ -15,6 +15,7 @@ import (
 	distreference "github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
+	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	pb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/identity"
@@ -282,10 +283,10 @@ func (c *grpcClient) Export(ctx context.Context, conn *grpc.ClientConn, f client
 		return err
 	}
 	if result == nil {
-		return fmt.Errorf("no result returned from gateway")
+		return errors.Errorf("no result returned from gateway")
 	}
 
-	return f(ctx, c, conn, result)
+	return f(ctx, c, conn, exportTarget(), result)
 }
 
 // defaultCaps returns the capabilities that were implemented when capabilities
@@ -1485,4 +1486,9 @@ func workers() []client.WorkerInfo {
 
 func product() string {
 	return os.Getenv("BUILDKIT_EXPORTEDPRODUCT")
+}
+
+func exportTarget() exptypes.ExporterTarget {
+	v := os.Getenv("BUILDKIT_EXPORTER_TARGET")
+	return exptypes.ExporterTarget(v)
 }

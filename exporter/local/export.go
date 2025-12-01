@@ -38,7 +38,11 @@ func New(opt Opt) (exporter.Exporter, error) {
 	return le, nil
 }
 
-func (e *localExporter) Resolve(ctx context.Context, id int, _ map[string]string, opt map[string]string) (exporter.ExporterInstance, error) {
+func (e *localExporter) Resolve(ctx context.Context, id int, _ map[string]string, opt map[string]string, target exptypes.ExporterTarget) (exporter.ExporterInstance, error) {
+	if target != exptypes.ExporterTargetUnknown && target != exptypes.ExporterTargetDirectory {
+		return nil, errors.Errorf("local exporter only supports directory target")
+	}
+
 	i := &localExporterInstance{
 		id:            id,
 		attrs:         opt,
@@ -74,6 +78,10 @@ func (e *localExporterInstance) Type() string {
 
 func (e *localExporterInstance) Attrs() map[string]string {
 	return e.attrs
+}
+
+func (e *localExporterInstance) Target() exptypes.ExporterTarget {
+	return exptypes.ExporterTargetDirectory
 }
 
 func (e *localExporter) Config() *exporter.Config {
