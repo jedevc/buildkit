@@ -21,6 +21,7 @@ import (
 	"github.com/moby/buildkit/solver"
 	"github.com/moby/buildkit/util/progress/logs"
 	"github.com/moby/buildkit/worker"
+	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 )
 
@@ -193,7 +194,22 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	case exptypes.ExporterTargetDirectory:
 		attachables = append(attachables, &filesync.ProxyDiffCopy{Caller: caller, ExporterID: e.id})
 	}
-	attachables = append(attachables, &Store{e.opt.ImageWriter.ContentStore()})
+
+	store := newFilteredStore(e.opt.ImageWriter.ContentStore())
+	remotes := make(chan []ocispecs.Descriptor, 1)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case descs := <-remotes:
+				store.allow(descs...)
+			}
+		}
+	}()
+	lbf.WithRemotes(remotes)
+
+	attachables = append(attachables, &proxyStore{store})
 	ctx = lbf.Serve(ctx, attachables...)
 	// defer lbf.conn.Close() // XXX:
 	// defer lbf.Discard()

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/containerd/containerd/v2/core/content"
+	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
@@ -22,6 +24,7 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 	"github.com/tonistiigi/fsutil"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -36,9 +39,10 @@ func init() {
 
 func TestFrontendIntegration(t *testing.T) {
 	testIntegration(t,
-		testGatewayExternal,
-		testGatewayExternalMultiplatform,
-		testGatewayInternal,
+		testGatewayExporter,
+		testIsolatedRemotes,
+		testExternalExporter,
+		testExternalExporterMultiplatform,
 	)
 }
 
@@ -52,7 +56,131 @@ func testIntegration(t *testing.T, funcs ...func(t *testing.T, sb integration.Sa
 	integration.Run(t, tests, mirrors)
 }
 
-func testGatewayExternal(t *testing.T, sb integration.Sandbox) {
+func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
+	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
+
+	c, err := client.New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	frontend := func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		st := llb.Scratch().
+			File(llb.Mkfile("/foo.txt", 0644, []byte("foo"))).
+			File(llb.Mkfile("/bar.txt", 0644, []byte("bar")))
+		def, err := st.Marshal(sb.Context())
+		if err != nil {
+			return nil, err
+		}
+		return c.Solve(ctx, gateway.SolveRequest{
+			Definition: def.ToPB(),
+		})
+	}
+
+	var foundFiles []string
+	var foundDescs []ocispecs.Descriptor
+	export := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
+		entries, err := result.Ref.ReadDir(ctx, gateway.ReadDirRequest{Path: "/"})
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			foundFiles = append(foundFiles, entry.Path)
+		}
+
+		store := contentproxy.NewContentStore(conn)
+		descs, err := result.Ref.GetRemote(ctx)
+		if err != nil {
+			return err
+		}
+		foundDescs = filterAvailableDescriptors(ctx, store, descs)
+
+		return nil
+	}
+
+	_, err = c.BuildExport(sb.Context(), client.SolveOpt{}, "", frontend, export, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"bar.txt", "foo.txt"}, foundFiles)
+	require.Len(t, foundDescs, 2) // 2 layers
+}
+
+func testIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
+	// XXX: isolation doesn't work here, because this content store isn't
+	// hosted through the gateway exporter
+	t.SkipNow()
+
+	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
+
+	c, err := client.New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	frontend := func(content string) gateway.BuildFunc {
+		return func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+			st := llb.Scratch().File(llb.Mkfile("/foo.txt", 0644, []byte(content)))
+			def, err := st.Marshal(sb.Context())
+			if err != nil {
+				return nil, err
+			}
+			return c.Solve(ctx, gateway.SolveRequest{
+				Definition: def.ToPB(),
+			})
+		}
+	}
+
+	descs := make(chan []ocispecs.Descriptor)
+	export1 := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
+		store := contentproxy.NewContentStore(conn)
+		desc, err := result.Ref.GetRemote(ctx)
+		if err != nil {
+			return err
+		}
+		// check that all descriptors are readable
+		require.Equal(t, desc, filterAvailableDescriptors(ctx, store, desc))
+		descs <- desc
+		return nil
+	}
+	export2 := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
+		store := contentproxy.NewContentStore(conn)
+		desc := <-descs
+		// check that none of the descriptors are readable
+		require.Empty(t, filterAvailableDescriptors(ctx, store, desc))
+		return nil
+	}
+
+	eg, ctx := errgroup.WithContext(sb.Context())
+	eg.Go(func() error {
+		_, err := c.BuildExport(ctx, client.SolveOpt{}, "", frontend("first"), export1, nil)
+		return err
+	})
+	eg.Go(func() error {
+		_, err := c.BuildExport(ctx, client.SolveOpt{}, "", frontend("second"), export2, nil)
+		return err
+	})
+	err = eg.Wait()
+	require.NoError(t, err)
+}
+
+func filterAvailableDescriptors(ctx context.Context, store content.Store, descs []ocispecs.Descriptor) (result []ocispecs.Descriptor) {
+	for _, desc := range descs {
+		r, err := store.ReaderAt(ctx, desc)
+		if err != nil {
+			// XXX: check for specific error
+			continue
+		}
+		defer r.Close()
+		sr := io.NewSectionReader(r, 0, r.Size())
+		_, err = io.Copy(io.Discard, sr)
+		if err != nil {
+			// XXX: check for specific error
+			continue
+		}
+		result = append(result, desc)
+	}
+	return result
+}
+
+func testExternalExporter(t *testing.T, sb integration.Sandbox) {
 	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
 
 	c, err := client.New(sb.Context(), sb.Address())
@@ -172,7 +300,7 @@ func testGatewayExternal(t *testing.T, sb integration.Sandbox) {
 	}
 }
 
-func testGatewayExternalMultiplatform(t *testing.T, sb integration.Sandbox) {
+func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
 
 	c, err := client.New(sb.Context(), sb.Address())
@@ -354,42 +482,4 @@ type reportRef struct {
 
 	Layers     []digest.Digest            `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
-}
-
-func testGatewayInternal(t *testing.T, sb integration.Sandbox) {
-	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
-
-	c, err := client.New(sb.Context(), sb.Address())
-	require.NoError(t, err)
-	defer c.Close()
-
-	frontend := func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
-		st := llb.Scratch().
-			File(llb.Mkfile("/foo.txt", 0644, []byte("foo"))).
-			File(llb.Mkfile("/bar.txt", 0644, []byte("bar")))
-		def, err := st.Marshal(sb.Context())
-		if err != nil {
-			return nil, err
-		}
-		return c.Solve(ctx, gateway.SolveRequest{
-			Definition: def.ToPB(),
-		})
-	}
-
-	var files []string
-	export := func(ctx context.Context, c gateway.Client, _ *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
-		entries, err := result.Ref.ReadDir(ctx, gateway.ReadDirRequest{Path: "/"})
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			files = append(files, entry.Path)
-		}
-		return nil
-	}
-
-	_, err = c.BuildExport(sb.Context(), client.SolveOpt{}, "", frontend, export, nil)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{"bar.txt", "foo.txt"}, files)
 }

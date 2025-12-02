@@ -10,7 +10,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/containerd/containerd/v2/core/content/proxy"
+	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
@@ -55,7 +55,7 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 	if opts == nil {
 		opts = map[string]string{}
 	}
-	store := proxy.NewContentStore(conn)
+	store := contentproxy.NewContentStore(conn)
 
 	report := &report{
 		Opts:   opts,

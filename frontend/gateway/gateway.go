@@ -592,8 +592,9 @@ type llbBridgeForwarder struct {
 	sm                *session.Manager
 	executor          executor.Executor
 	*pipe
-	ctrs   map[string]gwclient.Container
-	ctrsMu sync.Mutex
+	ctrs    map[string]gwclient.Container
+	ctrsMu  sync.Mutex
+	remotes chan<- []ocispecs.Descriptor
 }
 
 func (lbf *llbBridgeForwarder) ResolveSourceMeta(ctx context.Context, req *pb.ResolveSourceMetaRequest) (*pb.ResolveSourceMetaResponse, error) {
@@ -1181,6 +1182,11 @@ func (lbf *llbBridgeForwarder) GetReturn(ctx context.Context, in *pb.GetReturnRe
 	return resp, nil
 }
 
+func (lbf *llbBridgeForwarder) WithRemotes(remotes chan<- []ocispecs.Descriptor) {
+	// XXX: mutex? or just a different approach lol
+	lbf.remotes = remotes
+}
+
 func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRequest) (*pb.GetRemoteResponse, error) {
 	r, err := lbf.getImmutableRef(ctx, in.Ref)
 	if err != nil {
@@ -1206,6 +1212,9 @@ func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRe
 	}
 	for _, desc := range remote.Descriptors {
 		resp.Descriptors = append(resp.Descriptors, pb.DescriptorToPB(desc))
+	}
+	if lbf.remotes != nil {
+		lbf.remotes <- remote.Descriptors
 	}
 	return resp, nil
 }
