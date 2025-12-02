@@ -52,18 +52,18 @@ if [ "$#" == 0 ]; then TEST_INTEGRATION=1; fi
 
 while test $# -gt 0; do
   case "$1" in
-    gateway)
-      TEST_GATEWAY=1
-      ;;
-    dockerfile)
-      TEST_DOCKERFILE=1
-      ;;
-    integration)
-      TEST_INTEGRATION=1
-      ;;
-    *)
-      echo "unknown arg $1"
-      ;;
+  gateway)
+    TEST_GATEWAY=1
+    ;;
+  dockerfile)
+    TEST_DOCKERFILE=1
+    ;;
+  integration)
+    TEST_INTEGRATION=1
+    ;;
+  *)
+    echo "unknown arg $1"
+    ;;
   esac
   shift
 done
@@ -71,6 +71,7 @@ done
 testReportsDir="$(pwd)/bin/testreports"
 mkdir -p "$testReportsDir"
 testReportsVol="-v $testReportsDir:/testreports"
+sourceVol="-v $(pwd):/src:ro"
 gotestsumArgs="--format=standard-verbose --jsonfile=/testreports/go-test-report$TEST_REPORT_SUFFIX.json --junitfile=/testreports/junit-report$TEST_REPORT_SUFFIX.xml"
 gotestArgs="-mod=vendor"
 
@@ -120,7 +121,7 @@ if [ "$GITHUB_ACTIONS" = "true" ] || [ -n "$MOUNT_BUILDKIT_DOCKER_CONFIG_PATH" ]
 fi
 
 baseCreateFlags="--rm --privileged $dockerConfigMount \
--v /tmp $testReportsVol \
+-v /tmp $testReportsVol $sourceVol \
 --volumes-from=$cacheVolume \
 -e CGO_ENABLED \
 -e GITHUB_REF \

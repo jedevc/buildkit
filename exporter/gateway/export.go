@@ -292,7 +292,13 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	}
 
 	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
-	lbf.SetResult(src.FrontendResult)
+	result := src.FrontendResult
+	// defer func() {
+	// 	result.EachRef(func(ref solver.ResultProxy) error {
+	// 		return ref.Release(ctx)
+	// 	})
+	// }()
+	lbf.SetResult(result)
 
 	attachables := []session.Attachable{}
 	switch e.target {
@@ -304,7 +310,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	attachables = append(attachables, &Store{e.opt.ImageWriter.ContentStore()})
 	ctx = lbf.Serve(ctx, attachables...)
 	// defer lbf.conn.Close() // XXX:
-	defer lbf.Discard()
+	// defer lbf.Discard()
 
 	mdmnt, release, err := gateway.MetadataMount(frontendDef)
 	if err != nil {

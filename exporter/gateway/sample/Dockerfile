@@ -19,13 +19,14 @@ ARG BUILDTAGS=""
 ARG TARGETPLATFORM
 RUN --mount=target=. --mount=type=cache,target=/root/.cache \
   --mount=target=/go/pkg/mod,type=cache \
-  CGO_ENABLED=0 xx-go build -o /dockerfile-frontend -tags "$BUILDTAGS netgo static_build osusergo" ./exporter/gateway/sample && \
-  xx-verify --static /dockerfile-frontend
+  CGO_ENABLED=0 xx-go build -o /sample-exporter -tags "$BUILDTAGS netgo static_build osusergo" ./exporter/gateway/sample && \
+  xx-verify --static /sample-exporter
 
 FROM scratch AS release
 LABEL moby.buildkit.frontend.network.none="true"
-LABEL moby.buildkit.frontend.caps="moby.buildkit.frontend.inputs,moby.buildkit.frontend.subrequests,moby.buildkit.frontend.contexts,moby.buildkit.frontend.gitquerystring"
-COPY --from=build /dockerfile-frontend /bin/dockerfile-frontend
-ENTRYPOINT ["/bin/dockerfile-frontend"]
+# XXX: set these
+# LABEL moby.buildkit.frontend.caps="moby.buildkit.frontend.inputs,moby.buildkit.frontend.subrequests,moby.buildkit.frontend.contexts,moby.buildkit.frontend.gitquerystring"
+COPY --from=build /sample-exporter /bin/sample-exporter
+ENTRYPOINT ["/bin/sample-exporter"]
 
 FROM release
