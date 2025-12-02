@@ -43,7 +43,6 @@ import (
 	opspb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/moby/buildkit/util/bklog"
-	"github.com/moby/buildkit/util/compression"
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/moby/buildkit/util/stack"
 	"github.com/moby/buildkit/util/tracing"
@@ -118,11 +117,6 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 		return nil, errors.Errorf("no source specified for gateway")
 	}
 
-	var img dockerspec.DockerOCIImage
-	var mfstDigest digest.Digest
-	var rootFS cache.MutableRef
-	var readonly bool // TODO: try to switch to read-only by default.
-
 	var frontendDef *opspb.Definition
 
 	err := gf.checkSourceIsAllowed(source)
@@ -134,59 +128,9 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 	if err != nil {
 		return nil, err
 	}
-	dc, err := dockerui.NewClient(c)
+	st, img, mfstDigest, err := LoadImage(ctx, c, source)
 	if err != nil {
 		return nil, err
-	}
-	nc, err := dc.NamedContext(source, dockerui.ContextOpt{
-		CaptureDigest: &mfstDigest,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var st *llb.State
-	if nc != nil {
-		var dockerImage *dockerspec.DockerOCIImage
-		st, dockerImage, err = nc.Load(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if dockerImage != nil {
-			img = *dockerImage
-		}
-	}
-	if st == nil {
-		sourceRef, err := reference.ParseNormalizedNamed(source)
-		if err != nil {
-			return nil, err
-		}
-
-		imr := sourceresolver.NewImageMetaResolver(llbBridge)
-		ref, dgst, config, err := imr.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), sourceresolver.Opt{})
-		if err != nil {
-			return nil, err
-		}
-
-		sourceRef, err = reference.ParseNormalizedNamed(ref)
-		if err != nil {
-			return nil, err
-		}
-
-		mfstDigest = dgst
-
-		if err := json.Unmarshal(config, &img); err != nil {
-			return nil, err
-		}
-
-		if dgst != "" {
-			sourceRef, err = reference.WithDigest(sourceRef, dgst)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		src := llb.Image(sourceRef.String(), &markTypeFrontend{})
-		st = &src
 	}
 
 	def, err := st.Marshal(ctx)
@@ -218,65 +162,20 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 	if !ok {
 		return nil, errors.Errorf("invalid ref: %T", r.Sys())
 	}
-	rootFS, err = workerRef.Worker.CacheManager().New(ctx, workerRef.ImmutableRef, session.NewGroup(sid))
+	rootFS, err := workerRef.Worker.CacheManager().New(ctx, workerRef.ImmutableRef, session.NewGroup(sid))
 	if err != nil {
 		return nil, err
 	}
 	defer rootFS.Release(context.TODO())
 
-	args := []string{"/run"}
-	env := []string{}
-	cwd := "/"
-	if img.Config.Env != nil {
-		env = img.Config.Env
-	}
-	if img.Config.Entrypoint != nil {
-		args = img.Config.Entrypoint
-	}
-	if img.Config.WorkingDir != "" {
-		cwd = img.Config.WorkingDir
-	}
-	i := 0
-	for k, v := range opts {
-		env = append(env, fmt.Sprintf("BUILDKIT_FRONTEND_OPT_%d", i)+"="+k+"="+v)
-		i++
-	}
-
-	env = append(env, "BUILDKIT_SESSION_ID="+sid)
-
-	dt, err := json.Marshal(gf.workers.WorkerInfos())
+	meta, err := GetEnv(*img, opts, gf.workers, sid)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal workers array")
-	}
-	env = append(env, "BUILDKIT_WORKERS="+string(dt))
-
-	env = append(env, "BUILDKIT_EXPORTEDPRODUCT="+apicaps.ExportedProduct)
-
-	meta := executor.Meta{
-		Env:                       env,
-		Args:                      args,
-		Cwd:                       cwd,
-		ReadonlyRootFS:            readonly,
-		RemoveMountStubsRecursive: true,
+		return nil, err
 	}
 
-	if v, ok := img.Config.Labels["moby.buildkit.frontend.network.none"]; ok {
-		if ok, _ := strconv.ParseBool(v); ok {
-			meta.NetMode = opspb.NetMode_NONE
-		}
-	}
-
-	curCaps := getCaps(img.Config.Labels["moby.buildkit.frontend.caps"])
-	addCapsForKnownFrontends(curCaps, mfstDigest)
-	reqCaps := getCaps(opts["frontend.caps"])
-	if len(inputs) > 0 {
-		reqCaps["moby.buildkit.frontend.inputs"] = struct{}{}
-	}
-
-	for c := range reqCaps {
-		if _, ok := curCaps[c]; !ok {
-			return nil, stack.Enable(grpcerrors.WrapCode(errdefs.NewUnsupportedFrontendCapError(c), codes.Unimplemented))
-		}
+	err = CheckCaps(*img, opts, inputs, mfstDigest)
+	if err != nil {
+		return nil, err
 	}
 
 	lbf, ctx := serveLLBBridgeForwarder(ctx, llbBridge, exec, gf.workers, inputs, sid, sm)
@@ -295,7 +194,7 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 		mnts = append(mnts, *mdmnt)
 	}
 
-	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sid)), mnts, executor.ProcessInfo{Meta: meta, Stdin: lbf.Stdin, Stdout: lbf.Stdout, Stderr: os.Stderr}, nil)
+	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sid)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: lbf.Stdin, Stdout: lbf.Stdout, Stderr: os.Stderr}, nil)
 	if err != nil {
 		if errdefs.IsCanceled(ctx, err) && lbf.isErrServerClosed {
 			err = errors.Errorf("frontend grpc server closed unexpectedly")
@@ -312,6 +211,132 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 	}
 
 	return lbf.Result()
+}
+
+func GetEnv(img dockerspec.DockerOCIImage, opts map[string]string, workers worker.Infos, sid string) (meta *executor.Meta, _ error) {
+	meta = &executor.Meta{
+		RemoveMountStubsRecursive: true,
+		// TODO: try to switch to read-only by default
+		// ReadonlyRootFS: false,
+	}
+
+	if img.Config.Entrypoint == nil {
+		meta.Args = []string{"/run"}
+	} else {
+		meta.Args = img.Config.Entrypoint
+	}
+
+	if img.Config.Env == nil {
+		meta.Env = []string{}
+	} else {
+		meta.Env = img.Config.Env
+	}
+
+	if img.Config.WorkingDir == "" {
+		meta.Cwd = "/"
+	} else {
+		meta.Cwd = img.Config.WorkingDir
+	}
+
+	i := 0
+	for k, v := range opts {
+		meta.Env = append(meta.Env, fmt.Sprintf("BUILDKIT_FRONTEND_OPT_%d", i)+"="+k+"="+v)
+		i++
+	}
+
+	meta.Env = append(meta.Env, "BUILDKIT_SESSION_ID="+sid)
+
+	dt, err := json.Marshal(workers)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal workers array")
+	}
+	meta.Env = append(meta.Env, "BUILDKIT_WORKERS="+string(dt))
+
+	meta.Env = append(meta.Env, "BUILDKIT_EXPORTEDPRODUCT="+apicaps.ExportedProduct)
+
+	if v, ok := img.Config.Labels["moby.buildkit.frontend.network.none"]; ok {
+		if ok, _ := strconv.ParseBool(v); ok {
+			meta.NetMode = opspb.NetMode_NONE
+		}
+	}
+
+	return meta, nil
+}
+
+func CheckCaps(img dockerspec.DockerOCIImage, opts map[string]string, inputs map[string]*opspb.Definition, mfstDigest digest.Digest) error {
+	curCaps := getCaps(img.Config.Labels["moby.buildkit.frontend.caps"])
+	addCapsForKnownFrontends(curCaps, mfstDigest)
+
+	reqCaps := getCaps(opts["frontend.caps"])
+	if len(inputs) > 0 {
+		reqCaps["moby.buildkit.frontend.inputs"] = struct{}{}
+	}
+
+	for c := range reqCaps {
+		if _, ok := curCaps[c]; !ok {
+			return stack.Enable(grpcerrors.WrapCode(errdefs.NewUnsupportedFrontendCapError(c), codes.Unimplemented))
+		}
+	}
+
+	return nil
+}
+
+func LoadImage(ctx context.Context, c *forwarder.BridgeClient, source string) (st *llb.State, img *dockerspec.DockerOCIImage, mfstDigest digest.Digest, err error) {
+	dc, err := dockerui.NewClient(c)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	nc, err := dc.NamedContext(source, dockerui.ContextOpt{
+		CaptureDigest: &mfstDigest,
+	})
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if nc != nil {
+		var dockerImage *dockerspec.DockerOCIImage
+		st, dockerImage, err = nc.Load(ctx)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if dockerImage != nil {
+			img = dockerImage
+		}
+	}
+	if st == nil {
+		sourceRef, err := reference.ParseNormalizedNamed(source)
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		imr := sourceresolver.NewImageMetaResolver(c.FrontendLLBBridge)
+		ref, dgst, config, err := imr.ResolveImageConfig(ctx, reference.TagNameOnly(sourceRef).String(), sourceresolver.Opt{})
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		sourceRef, err = reference.ParseNormalizedNamed(ref)
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		mfstDigest = dgst
+
+		if err := json.Unmarshal(config, &img); err != nil {
+			return nil, nil, "", err
+		}
+
+		if dgst != "" {
+			sourceRef, err = reference.WithDigest(sourceRef, dgst)
+			if err != nil {
+				return nil, nil, "", err
+			}
+		}
+
+		src := llb.Image(sourceRef.String(), &markTypeFrontend{})
+		st = &src
+	}
+
+	return st, img, mfstDigest, nil
 }
 
 func MetadataMount(def *opspb.Definition) (*executor.Mount, func(), error) {
@@ -1162,9 +1187,8 @@ func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRe
 		return nil, err
 	}
 
-	// XXX: load from in
 	rc := config.RefConfig{
-		Compression: compression.New(compression.Default),
+		Compression: pb.CompressionFromPB(in.Compression),
 	}
 	remotes, err := r.GetRemotes(ctx, true, rc, false, session.NewGroup(lbf.sid))
 	if err != nil {

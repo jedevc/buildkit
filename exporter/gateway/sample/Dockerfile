@@ -24,8 +24,7 @@ RUN --mount=target=. --mount=type=cache,target=/root/.cache \
 
 FROM scratch AS release
 LABEL moby.buildkit.frontend.network.none="true"
-# XXX: set these
-# LABEL moby.buildkit.frontend.caps="moby.buildkit.frontend.inputs,moby.buildkit.frontend.subrequests,moby.buildkit.frontend.contexts,moby.buildkit.frontend.gitquerystring"
+# LABEL moby.buildkit.frontend.caps="" # currently no caps defined
 COPY --from=build /sample-exporter /bin/sample-exporter
 ENTRYPOINT ["/bin/sample-exporter"]
 

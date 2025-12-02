@@ -21,6 +21,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ExporterTarget int32
+
+const (
+	ExporterTarget_UNKNOWN   ExporterTarget = 0
+	ExporterTarget_NONE      ExporterTarget = 1
+	ExporterTarget_FILE      ExporterTarget = 2
+	ExporterTarget_DIRECTORY ExporterTarget = 3
+	ExporterTarget_STORE     ExporterTarget = 4
+)
+
+// Enum value maps for ExporterTarget.
+var (
+	ExporterTarget_name = map[int32]string{
+		0: "UNKNOWN",
+		1: "NONE",
+		2: "FILE",
+		3: "DIRECTORY",
+		4: "STORE",
+	}
+	ExporterTarget_value = map[string]int32{
+		"UNKNOWN":   0,
+		"NONE":      1,
+		"FILE":      2,
+		"DIRECTORY": 3,
+		"STORE":     4,
+	}
+)
+
+func (x ExporterTarget) Enum() *ExporterTarget {
+	p := new(ExporterTarget)
+	*p = x
+	return p
+}
+
+func (x ExporterTarget) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ExporterTarget) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_moby_buildkit_session_exporter_exporter_proto_enumTypes[0].Descriptor()
+}
+
+func (ExporterTarget) Type() protoreflect.EnumType {
+	return &file_github_com_moby_buildkit_session_exporter_exporter_proto_enumTypes[0]
+}
+
+func (x ExporterTarget) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ExporterTarget.Descriptor instead.
+func (ExporterTarget) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDescGZIP(), []int{0}
+}
+
 type FindExportersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Metadata      map[string][]byte      `protobuf:"bytes,1,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -121,6 +176,7 @@ type ExporterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          string                 `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
 	Attrs         map[string]string      `protobuf:"bytes,2,rep,name=Attrs,proto3" json:"Attrs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Target        ExporterTarget         `protobuf:"varint,3,opt,name=Target,proto3,enum=moby.exporter.v1.ExporterTarget" json:"Target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -169,6 +225,13 @@ func (x *ExporterRequest) GetAttrs() map[string]string {
 	return nil
 }
 
+func (x *ExporterRequest) GetTarget() ExporterTarget {
+	if x != nil {
+		return x.Target
+	}
+	return ExporterTarget_UNKNOWN
+}
+
 var File_github_com_moby_buildkit_session_exporter_exporter_proto protoreflect.FileDescriptor
 
 const file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDesc = "" +
@@ -181,14 +244,21 @@ const file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDesc = ""
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value:\x028\x01\"X\n" +
 	"\x15FindExportersResponse\x12?\n" +
-	"\texporters\x18\x01 \x03(\v2!.moby.exporter.v1.ExporterRequestR\texporters\"\xa3\x01\n" +
+	"\texporters\x18\x01 \x03(\v2!.moby.exporter.v1.ExporterRequestR\texporters\"\xdd\x01\n" +
 	"\x0fExporterRequest\x12\x12\n" +
 	"\x04Type\x18\x01 \x01(\tR\x04Type\x12B\n" +
-	"\x05Attrs\x18\x02 \x03(\v2,.moby.exporter.v1.ExporterRequest.AttrsEntryR\x05Attrs\x1a8\n" +
+	"\x05Attrs\x18\x02 \x03(\v2,.moby.exporter.v1.ExporterRequest.AttrsEntryR\x05Attrs\x128\n" +
+	"\x06Target\x18\x03 \x01(\x0e2 .moby.exporter.v1.ExporterTargetR\x06Target\x1a8\n" +
 	"\n" +
 	"AttrsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012l\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*K\n" +
+	"\x0eExporterTarget\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\b\n" +
+	"\x04NONE\x10\x01\x12\b\n" +
+	"\x04FILE\x10\x02\x12\r\n" +
+	"\tDIRECTORY\x10\x03\x12\t\n" +
+	"\x05STORE\x10\x042l\n" +
 	"\bExporter\x12`\n" +
 	"\rFindExporters\x12&.moby.exporter.v1.FindExportersRequest\x1a'.moby.exporter.v1.FindExportersResponseB+Z)github.com/moby/buildkit/session/exporterb\x06proto3"
 
@@ -204,25 +274,28 @@ func file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDescGZIP()
 	return file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDescData
 }
 
+var file_github_com_moby_buildkit_session_exporter_exporter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_github_com_moby_buildkit_session_exporter_exporter_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_github_com_moby_buildkit_session_exporter_exporter_proto_goTypes = []any{
-	(*FindExportersRequest)(nil),  // 0: moby.exporter.v1.FindExportersRequest
-	(*FindExportersResponse)(nil), // 1: moby.exporter.v1.FindExportersResponse
-	(*ExporterRequest)(nil),       // 2: moby.exporter.v1.ExporterRequest
-	nil,                           // 3: moby.exporter.v1.FindExportersRequest.MetadataEntry
-	nil,                           // 4: moby.exporter.v1.ExporterRequest.AttrsEntry
+	(ExporterTarget)(0),           // 0: moby.exporter.v1.ExporterTarget
+	(*FindExportersRequest)(nil),  // 1: moby.exporter.v1.FindExportersRequest
+	(*FindExportersResponse)(nil), // 2: moby.exporter.v1.FindExportersResponse
+	(*ExporterRequest)(nil),       // 3: moby.exporter.v1.ExporterRequest
+	nil,                           // 4: moby.exporter.v1.FindExportersRequest.MetadataEntry
+	nil,                           // 5: moby.exporter.v1.ExporterRequest.AttrsEntry
 }
 var file_github_com_moby_buildkit_session_exporter_exporter_proto_depIdxs = []int32{
-	3, // 0: moby.exporter.v1.FindExportersRequest.metadata:type_name -> moby.exporter.v1.FindExportersRequest.MetadataEntry
-	2, // 1: moby.exporter.v1.FindExportersResponse.exporters:type_name -> moby.exporter.v1.ExporterRequest
-	4, // 2: moby.exporter.v1.ExporterRequest.Attrs:type_name -> moby.exporter.v1.ExporterRequest.AttrsEntry
-	0, // 3: moby.exporter.v1.Exporter.FindExporters:input_type -> moby.exporter.v1.FindExportersRequest
-	1, // 4: moby.exporter.v1.Exporter.FindExporters:output_type -> moby.exporter.v1.FindExportersResponse
-	4, // [4:5] is the sub-list for method output_type
-	3, // [3:4] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 0: moby.exporter.v1.FindExportersRequest.metadata:type_name -> moby.exporter.v1.FindExportersRequest.MetadataEntry
+	3, // 1: moby.exporter.v1.FindExportersResponse.exporters:type_name -> moby.exporter.v1.ExporterRequest
+	5, // 2: moby.exporter.v1.ExporterRequest.Attrs:type_name -> moby.exporter.v1.ExporterRequest.AttrsEntry
+	0, // 3: moby.exporter.v1.ExporterRequest.Target:type_name -> moby.exporter.v1.ExporterTarget
+	1, // 4: moby.exporter.v1.Exporter.FindExporters:input_type -> moby.exporter.v1.FindExportersRequest
+	2, // 5: moby.exporter.v1.Exporter.FindExporters:output_type -> moby.exporter.v1.FindExportersResponse
+	5, // [5:6] is the sub-list for method output_type
+	4, // [4:5] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_github_com_moby_buildkit_session_exporter_exporter_proto_init() }
@@ -235,13 +308,14 @@ func file_github_com_moby_buildkit_session_exporter_exporter_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDesc), len(file_github_com_moby_buildkit_session_exporter_exporter_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_github_com_moby_buildkit_session_exporter_exporter_proto_goTypes,
 		DependencyIndexes: file_github_com_moby_buildkit_session_exporter_exporter_proto_depIdxs,
+		EnumInfos:         file_github_com_moby_buildkit_session_exporter_exporter_proto_enumTypes,
 		MessageInfos:      file_github_com_moby_buildkit_session_exporter_exporter_proto_msgTypes,
 	}.Build()
 	File_github_com_moby_buildkit_session_exporter_exporter_proto = out.File

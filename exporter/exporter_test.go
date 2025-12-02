@@ -35,11 +35,21 @@ func init() {
 }
 
 func TestFrontendIntegration(t *testing.T) {
-	integration.Run(t, integration.TestFuncs(
+	testIntegration(t,
 		testGatewayExternal,
 		testGatewayExternalMultiplatform,
 		testGatewayInternal,
-	))
+	)
+}
+
+func testIntegration(t *testing.T, funcs ...func(t *testing.T, sb integration.Sandbox)) {
+	// XXX: to build custom exporters we need base images to be available
+	mirroredImages := integration.OfficialImages("golang:1.25-alpine3.22")
+	mirroredImages["tonistiigi/xx:1.6.1"] = "docker.io/tonistiigi/xx:1.6.1"
+	mirrors := integration.WithMirroredImages(mirroredImages)
+
+	tests := integration.TestFuncs(funcs...)
+	integration.Run(t, tests, mirrors)
 }
 
 func testGatewayExternal(t *testing.T, sb integration.Sandbox) {
@@ -301,8 +311,7 @@ func testGatewayExternalMultiplatform(t *testing.T, sb integration.Sandbox) {
 }
 
 func buildSampleExporter(ctx context.Context, c *client.Client, dest string) error {
-	// XXX: wild hack
-	gatewayDir, err := fsutil.NewFS("/src")
+	gatewayDir, err := fsutil.NewFS(integration.BuildkitSourcePath)
 	if err != nil {
 		return err
 	}

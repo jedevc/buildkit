@@ -398,7 +398,7 @@ message Descriptor {
 
 message Compression {
 	enum Type {
-		NONE = 0;
+		UNCOMPRESSED = 0;
 		GZIP = 1;
 		ESTARGZ = 2;
 		ZSTD = 3;

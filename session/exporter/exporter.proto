@@ -17,7 +17,16 @@ message FindExportersResponse {
 	repeated ExporterRequest exporters = 1;
 }
 
+enum ExporterTarget {
+	UNKNOWN = 0;
+	NONE = 1;
+	FILE = 2;
+	DIRECTORY = 3;
+	STORE = 4;
+}
+
 message ExporterRequest {
 	string Type = 1;
 	map<string, string> Attrs = 2;
+	ExporterTarget Target = 3;
 }
