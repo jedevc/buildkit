@@ -22,6 +22,7 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 	"github.com/tonistiigi/fsutil"
+	"google.golang.org/grpc"
 )
 
 func init() {
@@ -37,6 +38,7 @@ func TestFrontendIntegration(t *testing.T) {
 	integration.Run(t, integration.TestFuncs(
 		testGatewayExternal,
 		testGatewayExternalMultiplatform,
+		testGatewayInternal,
 	))
 }
 
@@ -343,4 +345,42 @@ type reportRef struct {
 
 	Layers     []digest.Digest            `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
+}
+
+func testGatewayInternal(t *testing.T, sb integration.Sandbox) {
+	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
+
+	c, err := client.New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	frontend := func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		st := llb.Scratch().
+			File(llb.Mkfile("/foo.txt", 0644, []byte("foo"))).
+			File(llb.Mkfile("/bar.txt", 0644, []byte("bar")))
+		def, err := st.Marshal(sb.Context())
+		if err != nil {
+			return nil, err
+		}
+		return c.Solve(ctx, gateway.SolveRequest{
+			Definition: def.ToPB(),
+		})
+	}
+
+	var files []string
+	export := func(ctx context.Context, c gateway.Client, _ *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
+		entries, err := result.Ref.ReadDir(ctx, gateway.ReadDirRequest{Path: "/"})
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			files = append(files, entry.Path)
+		}
+		return nil
+	}
+
+	_, err = c.BuildExport(sb.Context(), client.SolveOpt{}, "", frontend, export, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"bar.txt", "foo.txt"}, files)
 }

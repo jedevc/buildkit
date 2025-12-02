@@ -42,7 +42,7 @@ const frontendPrefix = "BUILDKIT_FRONTEND_OPT_"
 type GrpcClient interface {
 	client.Client
 
-	Build(context.Context, client.BuildFunc) error
+	Build(context.Context, client.BuildFunc) (*client.Result, error)
 	Export(context.Context, *grpc.ClientConn, client.ExportFunc) error
 }
 
@@ -115,10 +115,11 @@ func BuildFromEnvironment(ctx context.Context, f client.BuildFunc) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to initialize client from environment")
 	}
-	return client.Build(ctx, f)
+	_, err = client.Build(ctx, f)
+	return err
 }
 
-func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (retError error) {
+func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (_ *client.Result, retError error) {
 	export := c.caps.Supports(pb.CapReturnResult) == nil
 
 	var (
@@ -227,37 +228,37 @@ func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (retError er
 	}()
 
 	if res, err = f(ctx, c); err != nil {
-		return err
+		return nil, err
 	}
 
 	if res == nil {
-		return nil
+		return nil, nil
 	}
 
 	if err := c.caps.Supports(pb.CapReturnMap); len(res.Refs) > 1 && err != nil {
-		return err
+		return nil, err
 	}
 
 	if !export {
 		exportedAttrBytes, err := json.Marshal(res.Metadata)
 		if err != nil {
-			return errors.Wrapf(err, "failed to marshal return metadata")
+			return nil, errors.Wrapf(err, "failed to marshal return metadata")
 		}
 
 		req, err := c.requestForRef(res.Ref)
 		if err != nil {
-			return errors.Wrapf(err, "failed to find return ref")
+			return nil, errors.Wrapf(err, "failed to find return ref")
 		}
 
 		req.Final = true
 		req.ExporterAttr = exportedAttrBytes
 
 		if _, err := c.client.Solve(ctx, req); err != nil {
-			return errors.Wrapf(err, "failed to solve")
+			return nil, errors.Wrapf(err, "failed to solve")
 		}
 	}
 
-	return nil
+	return res, nil
 }
 
 func ExportFromEnvironment(ctx context.Context, f client.ExportFunc) error {

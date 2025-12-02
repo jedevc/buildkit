@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/moby/buildkit/client/buildid"
+	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
 	gatewayapi "github.com/moby/buildkit/frontend/gateway/pb"
@@ -14,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (c *Client) Build(ctx context.Context, opt SolveOpt, product string, buildFunc gateway.BuildFunc, statusChan chan *SolveStatus) (*SolveResponse, error) {
+func (c *Client) BuildExport(ctx context.Context, opt SolveOpt, product string, buildFunc gateway.BuildFunc, exportFunc gateway.ExportFunc, statusChan chan *SolveStatus) (*SolveResponse, error) {
 	defer func() {
 		if statusChan != nil {
 			close(statusChan)
@@ -56,13 +57,23 @@ func (c *Client) Build(ctx context.Context, opt SolveOpt, product string, buildF
 		caps := g.BuildOpts().Caps
 		gwClient.caps = &caps
 
-		if err := g.Build(ctx, buildFunc); err != nil {
+		result, err := g.Build(ctx, buildFunc)
+		if err != nil {
 			return errors.Wrap(err, "failed to run Build function")
+		}
+		if exportFunc != nil {
+			if err := exportFunc(ctx, g, c.conn, exptypes.ExporterTargetUnknown, result); err != nil {
+				return errors.Wrap(err, "failed to run Export function")
+			}
 		}
 		return nil
 	}
 
 	return c.solve(ctx, nil, cb, opt, statusChan)
+}
+
+func (c *Client) Build(ctx context.Context, opt SolveOpt, product string, buildFunc gateway.BuildFunc, statusChan chan *SolveStatus) (*SolveResponse, error) {
+	return c.BuildExport(ctx, opt, product, buildFunc, nil, statusChan)
 }
 
 func (c *Client) gatewayClientForBuild(buildid string) *gatewayClientForBuild {
