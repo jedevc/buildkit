@@ -298,7 +298,12 @@ func (c *Client) solve(ctx context.Context, def *llb.Definition, runGateway runG
 			case exp.Output != nil:
 				target = controlapi.ExporterTarget_FILE
 			case exp.OutputDir != "":
-				target = controlapi.ExporterTarget_DIRECTORY
+				switch exp.Type {
+				case ExporterOCI, ExporterDocker:
+					target = controlapi.ExporterTarget_STORE
+				default:
+					target = controlapi.ExporterTarget_DIRECTORY
+				}
 			case exp.OutputStore != nil:
 				target = controlapi.ExporterTarget_STORE
 			}

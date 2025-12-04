@@ -758,7 +758,7 @@ func (s *Solver) getSessionExporters(ctx context.Context, sessionID string, id i
 		if err != nil {
 			return nil, err
 		}
-		expi, err := exp.Resolve(ctx, id+i, req.FrontendOpt, expReq.Attrs, exptypes.ExporterTarget(expReq.Target))
+		expi, err := exp.Resolve(ctx, id+i, req.FrontendOpt, expReq.Attrs, controlapi.ExporterTargetFromPB(expReq.Target))
 		if err != nil {
 			return nil, err
 		}

@@ -6,6 +6,7 @@ package exporter
 
 import (
 	fmt "fmt"
+	control "github.com/moby/buildkit/api/services/control"
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -935,7 +936,7 @@ func (m *ExporterRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Target |= ExporterTarget(b&0x7F) << shift
+				m.Target |= control.ExporterTarget(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

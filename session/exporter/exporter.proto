@@ -4,6 +4,8 @@ package moby.exporter.v1;
 
 option go_package = "github.com/moby/buildkit/session/exporter";
 
+import "github.com/moby/buildkit/api/services/control/control.proto";
+
 service Exporter {
 	rpc FindExporters(FindExportersRequest) returns (FindExportersResponse);
 }
@@ -17,16 +19,8 @@ message FindExportersResponse {
 	repeated ExporterRequest exporters = 1;
 }
 
-enum ExporterTarget {
-	UNKNOWN = 0;
-	NONE = 1;
-	FILE = 2;
-	DIRECTORY = 3;
-	STORE = 4;
-}
-
 message ExporterRequest {
 	string Type = 1;
 	map<string, string> Attrs = 2;
-	ExporterTarget Target = 3;
+	moby.buildkit.v1.ExporterTarget Target = 3;
 }
