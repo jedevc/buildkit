@@ -229,7 +229,8 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 		}
 	}()
 
-	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sessionID)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: lbf.Stdin, Stdout: lbf.Stdout, Stderr: stderr}, nil)
+	connIn, connOut := lbf.Conn()
+	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sessionID)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: connIn, Stdout: connOut, Stderr: stderr}, nil)
 	if err != nil {
 		lbf.SetResult(nil, err)
 	}

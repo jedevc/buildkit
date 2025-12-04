@@ -1,4 +1,4 @@
-package moby_buildkit_v1
+package moby_buildkit_v1 //nolint:revive,staticcheck
 
 import (
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"

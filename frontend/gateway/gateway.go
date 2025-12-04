@@ -195,22 +195,11 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 		mnts = append(mnts, *mdmnt)
 	}
 
-	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sid)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: lbf.Stdin, Stdout: lbf.Stdout, Stderr: os.Stderr}, nil)
+	connIn, connOut := lbf.Conn()
+	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sid)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: connIn, Stdout: connOut, Stderr: os.Stderr}, nil)
 	if err != nil {
-		if errdefs.IsCanceled(ctx, err) && lbf.isErrServerClosed {
-			err = errors.Errorf("frontend grpc server closed unexpectedly")
-		}
-		// An existing error (set via Return rpc) takes
-		// precedence over this error, which in turn takes
-		// precedence over a success reported via Return.
-		lbf.mu.Lock()
-		if lbf.err == nil {
-			lbf.result = nil
-			lbf.err = err
-		}
-		lbf.mu.Unlock()
+		lbf.SetResult(nil, err)
 	}
-
 	return lbf.Result(ctx)
 }
 
@@ -458,7 +447,7 @@ func (lbf *llbBridgeForwarder) Result(ctx context.Context) (*frontend.Result, er
 	return lbf.result, nil
 }
 
-func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) *llbBridgeForwarder {
+func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) LLBBridgeForwarder {
 	lbf := &llbBridgeForwarder{
 		callCtx:       ctx,
 		llbBridge:     llbBridge,
@@ -534,9 +523,19 @@ func (d dummyAddr) String() string {
 
 type LLBBridgeForwarder interface {
 	pb.LLBBridgeServer
+	Serve(ctx context.Context, attachables ...session.Attachable) context.Context
 	Done() <-chan struct{}
+	SetResult(r *frontend.Result, err error)
 	Result(ctx context.Context) (*frontend.Result, error)
+	Close() error
 	Discard()
+
+	// Conn returns the stdin and stdout pipes that can be used to communicate
+	// using the gateway API
+	Conn() (io.ReadCloser, io.WriteCloser)
+
+	// XXX: die
+	WithRemotes(chan<- []ocispecs.Descriptor)
 }
 
 type llbBridgeForwarder struct {
@@ -589,6 +588,10 @@ func (lbf *llbBridgeForwarder) Serve(ctx context.Context, attachables ...session
 	}()
 
 	return ctx
+}
+
+func (lbf *llbBridgeForwarder) Conn() (io.ReadCloser, io.WriteCloser) {
+	return lbf.Stdin, lbf.Stdout
 }
 
 func (lbf *llbBridgeForwarder) Close() error {

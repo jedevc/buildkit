@@ -1,10 +1,10 @@
-package moby_buildkit_v1_frontend
+package moby_buildkit_v1_frontend //nolint:revive,staticcheck
 
 import (
 	"maps"
 
 	"github.com/moby/buildkit/util/compression"
-	"github.com/opencontainers/go-digest"
+	digest "github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
