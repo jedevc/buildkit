@@ -11,10 +11,12 @@ import (
 	"path"
 
 	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
+	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
 	"github.com/moby/buildkit/session/filesync"
+	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/appcontext"
 	"github.com/moby/buildkit/util/bklog"
 	_ "github.com/moby/buildkit/util/grpcutil/encoding/proto"
@@ -48,9 +50,11 @@ type reportRef struct {
 
 	Layers     []digest.Digest            `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
+
+	Attestations []intoto.Statement `json:"attestations"`
 }
 
-func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target exptypes.ExporterTarget, result *client.Result) (err error) {
+func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target exptypes.ExporterTarget, res *client.Result) (err error) {
 	opts := c.BuildOpts().Opts
 	if opts == nil {
 		opts = map[string]string{}
@@ -63,13 +67,13 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 		Refs:   map[string]*reportRef{},
 	}
 
-	ps, err := exptypes.ParsePlatforms(result.Metadata)
+	ps, err := exptypes.ParsePlatforms(res.Metadata)
 	if err != nil {
 		return err
 	}
 	for _, p := range ps.Platforms {
 		report.Platforms = append(report.Platforms, p.ID)
-		ref, ok := result.FindRef(p.ID)
+		ref, ok := res.FindRef(p.ID)
 		if !ok {
 			return errors.Errorf("no ref for platform %s", p.ID)
 		}
@@ -77,7 +81,7 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 		reportRef := &reportRef{}
 		report.Refs[p.ID] = reportRef
 
-		config := exptypes.ParseKey(result.Metadata, exptypes.ExporterImageConfigKey, &p)
+		config := exptypes.ParseKey(res.Metadata, exptypes.ExporterImageConfigKey, &p)
 		reportRef.Config = config
 
 		err := walkDir(ctx, ref, "/", func(path string, info *fstypes.Stat) error {
@@ -132,6 +136,22 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 			if err != nil {
 				return err
 			}
+		}
+
+		var defaultSubjects []intoto.Subject
+		defaultSubjects = append(defaultSubjects, intoto.Subject{
+			Name:   "report.json",
+			Digest: result.ToDigestMap(digest.FromString("report.json")),
+		})
+		fmt.Fprintln(os.Stderr, res.Attestations)
+		atts, ok := res.Attestations[p.ID]
+		if ok {
+			stmts, err := MakeInTotoStatements(ctx, atts, defaultSubjects)
+			if err != nil {
+				return errors.Wrapf(err, "failed to make in-toto statements for platform %s", p.ID)
+			}
+
+			reportRef.Attestations = stmts
 		}
 	}
 

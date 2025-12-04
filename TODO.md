@@ -6,7 +6,7 @@
 - [x] exportprovider
 - [ ] Double release errors
 - XXXs
-- [ ] Attestation support
+- [x] Attestation support
 
 ## Follow-ups
 

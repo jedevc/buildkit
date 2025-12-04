@@ -827,7 +827,7 @@ func (lbf *llbBridgeForwarder) Solve(ctx context.Context, req *pb.SolveRequest) 
 		pbRes.Attestations = map[string]*pb.Attestations{}
 		for k, atts := range res.Attestations {
 			for _, att := range atts {
-				pbAtt, err := gwclient.AttestationToPB(&att)
+				pbAtt, err := gwclient.AttestationToPB(ctx, &att)
 				if err != nil {
 					lbf.mu.Unlock()
 					return nil, err
@@ -1150,13 +1150,10 @@ func (lbf *llbBridgeForwarder) GetReturn(ctx context.Context, in *pb.GetReturnRe
 		pbRes.Attestations = map[string]*pb.Attestations{}
 		for k, atts := range res.Attestations {
 			for _, att := range atts {
-				pbAtt, err := gwclient.AttestationToPB(&att)
+				pbAtt, err := gwclient.AttestationToPB(ctx, &att)
 				if err != nil {
 					lbf.mu.Unlock()
 					return nil, err
-				}
-				if pbAtt == nil { // XXX: kill this
-					continue
 				}
 
 				if att.Ref != nil {

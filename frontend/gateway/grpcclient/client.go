@@ -181,7 +181,7 @@ func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (_ *client.R
 					attestations := map[string]*pb.Attestations{}
 					for k, as := range res.Attestations {
 						for _, a := range as {
-							pbAtt, err := client.AttestationToPB(&a)
+							pbAtt, err := client.AttestationToPB(ctx, &a)
 							if err != nil {
 								retError = err
 								continue
@@ -511,7 +511,7 @@ func (c *grpcClient) loadResult(pbRes *pb.Result) (*client.Result, error) {
 				if err != nil {
 					return nil, err
 				}
-				if a.Ref.Id != "" {
+				if a.Ref != nil && a.Ref.Id != "" {
 					att.Ref = newReference(c, a.Ref)
 				}
 				res.AddAttestation(p, *att)

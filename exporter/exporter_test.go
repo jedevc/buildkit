@@ -13,11 +13,13 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
 	"github.com/containerd/platforms"
+	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/dockerui"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
+	ptypes "github.com/moby/buildkit/solver/llbsolver/provenance/types"
 	"github.com/moby/buildkit/util/testutil/integration"
 	"github.com/moby/buildkit/util/testutil/workers"
 	digest "github.com/opencontainers/go-digest"
@@ -238,6 +240,9 @@ func testExternalExporter(t *testing.T, sb integration.Sandbox) {
 	}
 
 	_, err = c.Build(sb.Context(), client.SolveOpt{
+		FrontendAttrs: map[string]string{
+			"attest:provenance": "mode=max",
+		},
 		Exports: []client.ExportEntry{
 			{
 				Type:   "gateway",
@@ -296,6 +301,14 @@ func testExternalExporter(t *testing.T, sb integration.Sandbox) {
 			require.Equal(t, 2, len(ref.Layers))
 			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0]])
 			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1]])
+
+			// attestations created
+			require.GreaterOrEqual(t, len(ref.Attestations), 1)
+			for _, att := range ref.Attestations {
+				require.Equal(t, intoto.StatementInTotoV01, att.Type)
+				require.Equal(t, "report.json", att.Subject[0].Name)
+				require.Equal(t, ptypes.BuildKitBuildType02, att.Predicate.(map[string]any)["buildType"])
+			}
 		}
 	}
 }
@@ -375,6 +388,9 @@ func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 	}
 
 	_, err = c.Build(sb.Context(), client.SolveOpt{
+		FrontendAttrs: map[string]string{
+			"attest:provenance": "mode=max",
+		},
 		Exports: []client.ExportEntry{
 			{
 				Type:   "gateway",
@@ -434,6 +450,14 @@ func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 			require.Equal(t, 2, len(ref.Layers))
 			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0]])
 			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1]])
+
+			// attestations created
+			require.GreaterOrEqual(t, len(ref.Attestations), 1)
+			for _, att := range ref.Attestations {
+				require.Equal(t, intoto.StatementInTotoV01, att.Type)
+				require.Equal(t, "report.json", att.Subject[0].Name)
+				require.Equal(t, ptypes.BuildKitBuildType02, att.Predicate.(map[string]any)["buildType"])
+			}
 		}
 	}
 }
@@ -482,4 +506,6 @@ type reportRef struct {
 
 	Layers     []digest.Digest            `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
+
+	Attestations []intoto.Statement `json:"attestations"`
 }
