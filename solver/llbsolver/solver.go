@@ -574,7 +574,7 @@ func (s *Solver) Solve(ctx context.Context, id string, sessionID string, req fro
 		var err error
 		select {
 		case <-fwd.Done():
-			res, err = fwd.Result()
+			res, err = fwd.Result(ctx)
 		case <-ctx.Done():
 			err = context.Cause(ctx)
 		}
@@ -645,9 +645,16 @@ func (s *Solver) Solve(ctx context.Context, id string, sessionID string, req fro
 	if err != nil {
 		return nil, err
 	}
+
+	expRes, err := result.ConvertResult(res, func(res solver.ResultProxy) (solver.ResultProxy, error) {
+		return solver.NopReleaseResultProxy(res), nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	src := &exporter.Source{
 		Result:         inp,
-		FrontendResult: res,
+		FrontendResult: expRes,
 	}
 
 	// Functions that create new objects in containerd (eg. content blobs) need to have a lease to ensure

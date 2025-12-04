@@ -179,13 +179,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	}
 
 	lbf := gateway.NewBridgeForwarder(ctx, llbBridge, exec, e.workerInfo, nil, sessionID, e.opt.SessionManager)
-	result := src.FrontendResult
-	// defer func() {
-	// 	result.EachRef(func(ref solver.ResultProxy) error {
-	// 		return ref.Release(ctx)
-	// 	})
-	// }()
-	lbf.SetResult(result)
+	lbf.SetResult(src.FrontendResult, nil)
 
 	attachables := []session.Attachable{}
 	switch e.target {
@@ -211,8 +205,8 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 
 	attachables = append(attachables, &proxyStore{store})
 	ctx = lbf.Serve(ctx, attachables...)
-	// defer lbf.conn.Close() // XXX:
-	// defer lbf.Discard()
+	defer lbf.Close()
+	defer lbf.Discard()
 
 	mdmnt, release, err := gateway.MetadataMount(frontendDef)
 	if err != nil {
@@ -237,23 +231,11 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 
 	_, err = exec.Run(ctx, "", container.MountWithSession(rootFS, session.NewGroup(sessionID)), mnts, executor.ProcessInfo{Meta: *meta, Stdin: lbf.Stdin, Stdout: lbf.Stdout, Stderr: stderr}, nil)
 	if err != nil {
-		return nil, nil, err
-
-		// if errdefs.IsCanceled(ctx, err) && lbf.isErrServerClosed {
-		// 	err = errors.Errorf("frontend grpc server closed unexpectedly")
-		// }
-		// An existing error (set via Return rpc) takes
-		// precedence over this error, which in turn takes
-		// precedence over a success reported via Return.
-		// lbf.mu.Lock()
-		// if lbf.err == nil {
-		// 	lbf.result = nil
-		// 	lbf.err = err
-		// }
-		// lbf.mu.Unlock()
+		lbf.SetResult(nil, err)
 	}
 
-	return nil, nil, nil
+	_, err = lbf.Result(ctx)
+	return nil, nil, err
 }
 
 type workerInfo struct {

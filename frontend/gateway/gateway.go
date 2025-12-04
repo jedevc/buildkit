@@ -178,8 +178,9 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 		return nil, err
 	}
 
-	lbf, ctx := serveLLBBridgeForwarder(ctx, llbBridge, exec, gf.workers, inputs, sid, sm)
-	defer lbf.conn.Close()
+	lbf := NewBridgeForwarder(ctx, llbBridge, exec, gf.workers, inputs, sid, sm)
+	ctx = lbf.Serve(ctx)
+	defer lbf.Close()
 	defer lbf.Discard()
 
 	mdmnt, release, err := metadataMount(frontendDef)
@@ -210,7 +211,7 @@ func (gf *gatewayFrontend) Solve(ctx context.Context, llbBridge frontend.Fronten
 		lbf.mu.Unlock()
 	}
 
-	return lbf.Result()
+	return lbf.Result(ctx)
 }
 
 func GetEnv(img dockerspec.DockerOCIImage, opts map[string]string, workers worker.Infos, sid string) (meta *executor.Meta, _ error) {
@@ -439,7 +440,7 @@ func (lbf *llbBridgeForwarder) setResult(r *frontend.Result, err error) (*pb.Ret
 	return &pb.ReturnResponse{}, nil
 }
 
-func (lbf *llbBridgeForwarder) Result() (*frontend.Result, error) {
+func (lbf *llbBridgeForwarder) Result(ctx context.Context) (*frontend.Result, error) {
 	lbf.mu.Lock()
 	defer lbf.mu.Unlock()
 
@@ -448,6 +449,9 @@ func (lbf *llbBridgeForwarder) Result() (*frontend.Result, error) {
 	}
 
 	if lbf.err != nil {
+		if errdefs.IsCanceled(ctx, lbf.err) && lbf.isErrServerClosed {
+			return nil, errors.Errorf("frontend grpc server closed unexpectedly")
+		}
 		return nil, lbf.err
 	}
 
@@ -455,10 +459,6 @@ func (lbf *llbBridgeForwarder) Result() (*frontend.Result, error) {
 }
 
 func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) *llbBridgeForwarder {
-	return newBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
-}
-
-func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) *llbBridgeForwarder {
 	lbf := &llbBridgeForwarder{
 		callCtx:       ctx,
 		llbBridge:     llbBridge,
@@ -474,40 +474,6 @@ func newBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 		executor:      exec,
 	}
 	return lbf
-}
-
-func (lbf *llbBridgeForwarder) Serve(ctx context.Context, attachables ...session.Attachable) context.Context {
-	ctx, cancel := context.WithCancelCause(ctx)
-	serverOpt := []grpc.ServerOption{
-		grpc.UnaryInterceptor(grpcerrors.UnaryServerInterceptor),
-		grpc.StreamInterceptor(grpcerrors.StreamServerInterceptor),
-		grpc.MaxRecvMsgSize(defaults.DefaultMaxRecvMsgSize),
-		grpc.MaxSendMsgSize(defaults.DefaultMaxSendMsgSize),
-	}
-	server := grpc.NewServer(serverOpt...)
-	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
-	pb.RegisterLLBBridgeServer(server, lbf)
-	for _, a := range attachables {
-		a.Register(server)
-	}
-
-	go func() {
-		serve(ctx, server, lbf.conn)
-		select {
-		case <-ctx.Done():
-		default:
-			lbf.isErrServerClosed = true
-		}
-		cancel(errors.WithStack(context.Canceled))
-	}()
-
-	return ctx
-
-}
-
-func serveLLBBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, workers worker.Infos, inputs map[string]*opspb.Definition, sid string, sm *session.Manager) (*llbBridgeForwarder, context.Context) {
-	lbf := newBridgeForwarder(ctx, llbBridge, exec, workers, inputs, sid, sm)
-	return lbf, lbf.Serve(ctx)
 }
 
 type pipe struct {
@@ -569,7 +535,7 @@ func (d dummyAddr) String() string {
 type LLBBridgeForwarder interface {
 	pb.LLBBridgeServer
 	Done() <-chan struct{}
-	Result() (*frontend.Result, error)
+	Result(ctx context.Context) (*frontend.Result, error)
 	Discard()
 }
 
@@ -595,6 +561,38 @@ type llbBridgeForwarder struct {
 	ctrs    map[string]gwclient.Container
 	ctrsMu  sync.Mutex
 	remotes chan<- []ocispecs.Descriptor
+}
+
+func (lbf *llbBridgeForwarder) Serve(ctx context.Context, attachables ...session.Attachable) context.Context {
+	ctx, cancel := context.WithCancelCause(ctx)
+	serverOpt := []grpc.ServerOption{
+		grpc.UnaryInterceptor(grpcerrors.UnaryServerInterceptor),
+		grpc.StreamInterceptor(grpcerrors.StreamServerInterceptor),
+		grpc.MaxRecvMsgSize(defaults.DefaultMaxRecvMsgSize),
+		grpc.MaxSendMsgSize(defaults.DefaultMaxSendMsgSize),
+	}
+	server := grpc.NewServer(serverOpt...)
+	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
+	pb.RegisterLLBBridgeServer(server, lbf)
+	for _, a := range attachables {
+		a.Register(server)
+	}
+
+	go func() {
+		serve(ctx, server, lbf.conn)
+		select {
+		case <-ctx.Done():
+		default:
+			lbf.isErrServerClosed = true
+		}
+		cancel(errors.WithStack(context.Canceled))
+	}()
+
+	return ctx
+}
+
+func (lbf *llbBridgeForwarder) Close() error {
+	return lbf.conn.Close()
 }
 
 func (lbf *llbBridgeForwarder) ResolveSourceMeta(ctx context.Context, req *pb.ResolveSourceMetaRequest) (*pb.ResolveSourceMetaResponse, error) {
@@ -1093,14 +1091,21 @@ func (lbf *llbBridgeForwarder) loadResult(pbRes *pb.Result) (*frontend.Result, e
 	return r, nil
 }
 
-func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result) {
+func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result, err error) {
 	lbf.mu.Lock()
-	lbf.result = result
+	if result != nil {
+		lbf.result = result
+	}
+	if err != nil {
+		// An existing error (set via Return rpc) takes
+		// precedence over this error
+		lbf.err = err
+	}
 	lbf.mu.Unlock()
 }
 
 func (lbf *llbBridgeForwarder) GetReturn(ctx context.Context, in *pb.GetReturnRequest) (*pb.GetReturnResponse, error) {
-	res, err := lbf.Result()
+	res, err := lbf.Result(ctx)
 	if err != nil {
 		return nil, err
 	}
