@@ -287,7 +287,11 @@ func (c *grpcClient) Export(ctx context.Context, conn *grpc.ClientConn, f client
 		return errors.Errorf("no result returned from gateway")
 	}
 
-	return f(ctx, c, conn, exportTarget(), result)
+	handle := exptypes.ExportHandle{
+		Conn:   conn,
+		Target: exportTarget(),
+	}
+	return f(ctx, c, handle, result)
 }
 
 // defaultCaps returns the capabilities that were implemented when capabilities

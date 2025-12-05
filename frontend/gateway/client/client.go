@@ -15,7 +15,6 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	fstypes "github.com/tonistiigi/fsutil/types"
-	"google.golang.org/grpc"
 )
 
 type Result = result.Result[Reference]
@@ -23,9 +22,7 @@ type Result = result.Result[Reference]
 type Attestation = result.Attestation[Reference]
 
 type BuildFunc func(context.Context, Client) (*Result, error)
-
-// XXX: weird that grpc is here
-type ExportFunc func(context.Context, Client, *grpc.ClientConn, exptypes.ExporterTarget, *Result) error
+type ExportFunc func(context.Context, Client, exptypes.ExportHandle, *Result) error
 
 func NewResult() *Result {
 	return &Result{}

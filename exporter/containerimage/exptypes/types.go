@@ -38,17 +38,3 @@ type InlineCacheEntry struct {
 	Data []byte
 }
 type InlineCache func(ctx context.Context) (*result.Result[*InlineCacheEntry], error)
-
-type ExporterTarget string
-
-const (
-	ExporterTargetUnknown   ExporterTarget = ""
-	ExporterTargetNone      ExporterTarget = "none"
-	ExporterTargetFile      ExporterTarget = "file"
-	ExporterTargetDirectory ExporterTarget = "directory"
-	ExporterTargetStore     ExporterTarget = "store"
-)
-
-func (t ExporterTarget) String() string {
-	return string(t)
-}

@@ -10,12 +10,10 @@ import (
 	"os"
 	"path"
 
-	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
-	"github.com/moby/buildkit/session/filesync"
 	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/appcontext"
 	"github.com/moby/buildkit/util/bklog"
@@ -23,9 +21,7 @@ import (
 	"github.com/moby/buildkit/util/staticfs"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
-	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -54,16 +50,17 @@ type reportRef struct {
 	Attestations []intoto.Statement `json:"attestations"`
 }
 
-func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target exptypes.ExporterTarget, res *client.Result) (err error) {
+func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, res *client.Result) (err error) {
 	opts := c.BuildOpts().Opts
 	if opts == nil {
 		opts = map[string]string{}
 	}
-	store := contentproxy.NewContentStore(conn)
+
+	store := handle.ContentStore()
 
 	report := &report{
 		Opts:   opts,
-		Target: string(target),
+		Target: string(handle.Target),
 		Refs:   map[string]*reportRef{},
 	}
 
@@ -162,15 +159,13 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 	out = append(out, '\n')
 	fmt.Fprint(os.Stderr, string(out))
 
-	switch target {
+	switch handle.Target {
 	case exptypes.ExporterTargetNone:
 	case exptypes.ExporterTargetFile:
-		client := filesync.NewFileSendClient(conn)
-		cc, err := client.DiffCopy(ctx)
+		w, err := handle.SendFile(ctx)
 		if err != nil {
 			return err
 		}
-		w := filesync.NewStreamWriter(cc)
 		_, err = fmt.Fprint(w, string(out))
 		if err != nil {
 			return err
@@ -179,17 +174,11 @@ func export(ctx context.Context, c client.Client, conn *grpc.ClientConn, target 
 			return err
 		}
 	case exptypes.ExporterTargetDirectory:
-		client := filesync.NewFileSendClient(conn)
-		cc, err := client.DiffCopy(ctx)
-		if err != nil {
-			return err
-		}
-
 		fs := staticfs.NewFS()
 		fs.Add("report.json", &fstypes.Stat{Mode: 0644}, out)
-		return errors.WithStack(fsutil.Send(cc.Context(), cc, fs, nil))
+		return handle.SendFS(ctx, fs)
 	default:
-		return errors.Errorf("unsupported export target: %s", target)
+		return errors.Errorf("unsupported export target: %s", handle.Target)
 	}
 
 	return nil

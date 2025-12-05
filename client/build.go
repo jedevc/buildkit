@@ -62,7 +62,11 @@ func (c *Client) BuildExport(ctx context.Context, opt SolveOpt, product string, 
 			return errors.Wrap(err, "failed to run Build function")
 		}
 		if exportFunc != nil {
-			if err := exportFunc(ctx, g, c.conn, exptypes.ExporterTargetUnknown, result); err != nil {
+			handle := exptypes.ExportHandle{
+				Target: exptypes.ExporterTargetUnknown,
+				Conn:   c.conn,
+			}
+			if err := exportFunc(ctx, g, handle, result); err != nil {
 				return errors.Wrap(err, "failed to run Export function")
 			}
 		}

@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/content"
-	contentproxy "github.com/containerd/containerd/v2/core/content/proxy"
 	"github.com/containerd/platforms"
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/moby/buildkit/client"
@@ -27,7 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tonistiigi/fsutil"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 )
 
 func init() {
@@ -80,7 +78,7 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 
 	var foundFiles []string
 	var foundDescs []ocispecs.Descriptor
-	export := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
+	export := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
 		entries, err := result.Ref.ReadDir(ctx, gateway.ReadDirRequest{Path: "/"})
 		if err != nil {
 			return err
@@ -89,12 +87,11 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 			foundFiles = append(foundFiles, entry.Path)
 		}
 
-		store := contentproxy.NewContentStore(conn)
 		descs, err := result.Ref.GetRemote(ctx)
 		if err != nil {
 			return err
 		}
-		foundDescs = filterAvailableDescriptors(ctx, store, descs)
+		foundDescs = filterAvailableDescriptors(ctx, handle.ContentStore(), descs)
 
 		return nil
 	}
@@ -131,22 +128,20 @@ func testIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
 	}
 
 	descs := make(chan []ocispecs.Descriptor)
-	export1 := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
-		store := contentproxy.NewContentStore(conn)
+	export1 := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
 		desc, err := result.Ref.GetRemote(ctx)
 		if err != nil {
 			return err
 		}
 		// check that all descriptors are readable
-		require.Equal(t, desc, filterAvailableDescriptors(ctx, store, desc))
+		require.Equal(t, desc, filterAvailableDescriptors(ctx, handle.ContentStore(), desc))
 		descs <- desc
 		return nil
 	}
-	export2 := func(ctx context.Context, c gateway.Client, conn *grpc.ClientConn, _ exptypes.ExporterTarget, result *gateway.Result) error {
-		store := contentproxy.NewContentStore(conn)
+	export2 := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
 		desc := <-descs
 		// check that none of the descriptors are readable
-		require.Empty(t, filterAvailableDescriptors(ctx, store, desc))
+		require.Empty(t, filterAvailableDescriptors(ctx, handle.ContentStore(), desc))
 		return nil
 	}
 
