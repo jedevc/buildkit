@@ -5,6 +5,7 @@ import (
 	"io"
 	"syscall"
 
+	"github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -103,12 +104,12 @@ type ContainerProcess interface {
 type Reference interface {
 	ToState() (llb.State, error)
 	Evaluate(ctx context.Context) error
+
 	ReadFile(ctx context.Context, req ReadRequest) ([]byte, error)
 	StatFile(ctx context.Context, req StatRequest) (*fstypes.Stat, error)
 	ReadDir(ctx context.Context, req ReadDirRequest) ([]*fstypes.Stat, error)
 
-	// XXX: this is only for exporting, should be moved out
-	GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error)
+	GetRemote(ctx context.Context, cfg config.RefConfig) ([]ocispecs.Descriptor, error)
 }
 
 type ReadRequest struct {

@@ -13,12 +13,14 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/platforms"
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/dockerui"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	ptypes "github.com/moby/buildkit/solver/llbsolver/provenance/types"
+	"github.com/moby/buildkit/util/compression"
 	"github.com/moby/buildkit/util/testutil/integration"
 	"github.com/moby/buildkit/util/testutil/workers"
 	digest "github.com/opencontainers/go-digest"
@@ -37,12 +39,13 @@ func init() {
 	}
 }
 
-func TestFrontendIntegration(t *testing.T) {
+func TestExporterIntegration(t *testing.T) {
 	testIntegration(t,
 		testGatewayExporter,
-		testIsolatedRemotes,
+		testGatewayIsolatedRemotes,
 		testExternalExporter,
 		testExternalExporterMultiplatform,
+		testGatewayExporterCompression,
 	)
 }
 
@@ -87,7 +90,7 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 			foundFiles = append(foundFiles, entry.Path)
 		}
 
-		descs, err := result.Ref.GetRemote(ctx)
+		descs, err := result.Ref.GetRemote(ctx, config.RefConfig{})
 		if err != nil {
 			return err
 		}
@@ -103,7 +106,7 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 	require.Len(t, foundDescs, 2) // 2 layers
 }
 
-func testIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
+func testGatewayIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
 	// XXX: isolation doesn't work here, because this content store isn't
 	// hosted through the gateway exporter
 	t.SkipNow()
@@ -129,7 +132,7 @@ func testIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
 
 	descs := make(chan []ocispecs.Descriptor)
 	export1 := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
-		desc, err := result.Ref.GetRemote(ctx)
+		desc, err := result.Ref.GetRemote(ctx, config.RefConfig{})
 		if err != nil {
 			return err
 		}
@@ -175,6 +178,22 @@ func filterAvailableDescriptors(ctx context.Context, store content.Store, descs 
 		result = append(result, desc)
 	}
 	return result
+}
+
+func checkAllDescriptors(ctx context.Context, store content.Store, descs []ocispecs.Descriptor) error {
+	for _, desc := range descs {
+		r, err := store.ReaderAt(ctx, desc)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		sr := io.NewSectionReader(r, 0, r.Size())
+		_, err = io.Copy(io.Discard, sr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func testExternalExporter(t *testing.T, sb integration.Sandbox) {
@@ -454,6 +473,83 @@ func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 				require.Equal(t, ptypes.BuildKitBuildType02, att.Predicate.(map[string]any)["buildType"])
 			}
 		}
+	}
+}
+
+func testGatewayExporterCompression(t *testing.T, sb integration.Sandbox) {
+	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
+
+	c, err := client.New(sb.Context(), sb.Address())
+	require.NoError(t, err)
+	defer c.Close()
+
+	frontend := func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		st := llb.Scratch().File(llb.Mkfile("/foo.txt", 0644, []byte("foo")))
+		def, err := st.Marshal(sb.Context())
+		if err != nil {
+			return nil, err
+		}
+		return c.Solve(ctx, gateway.SolveRequest{
+			Definition: def.ToPB(),
+		})
+	}
+
+	var uncompressedDescs, gzipDescs, zstdDescs []ocispecs.Descriptor
+	export := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
+		store := handle.ContentStore()
+
+		descs, err := result.Ref.GetRemote(ctx, config.RefConfig{
+			Compression: compression.New(compression.Uncompressed).SetForce(true),
+		})
+		if err != nil {
+			return err
+		}
+		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+			return err
+		}
+		uncompressedDescs = descs
+
+		descs, err = result.Ref.GetRemote(ctx, config.RefConfig{
+			Compression: compression.New(compression.Gzip).SetForce(true),
+		})
+		if err != nil {
+			return err
+		}
+		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+			return err
+		}
+		gzipDescs = descs
+
+		descs, err = result.Ref.GetRemote(ctx, config.RefConfig{
+			Compression: compression.New(compression.Zstd).SetForce(true),
+		})
+		if err != nil {
+			return err
+		}
+		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+			return err
+		}
+		zstdDescs = descs
+
+		return nil
+	}
+
+	_, err = c.BuildExport(sb.Context(), client.SolveOpt{}, "", frontend, export, nil)
+	require.NoError(t, err)
+
+	require.Len(t, uncompressedDescs, 1)
+	for _, desc := range uncompressedDescs {
+		require.Equal(t, ocispecs.MediaTypeImageLayer, desc.MediaType)
+	}
+
+	_ = gzipDescs
+	for _, desc := range gzipDescs {
+		require.Equal(t, ocispecs.MediaTypeImageLayerGzip, desc.MediaType)
+	}
+
+	require.Len(t, zstdDescs, 1)
+	for _, desc := range zstdDescs {
+		require.Equal(t, ocispecs.MediaTypeImageLayerZstd, desc.MediaType)
 	}
 }
 

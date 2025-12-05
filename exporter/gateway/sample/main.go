@@ -11,6 +11,7 @@ import (
 	"path"
 
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	"github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
@@ -78,8 +79,7 @@ func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, 
 		reportRef := &reportRef{}
 		report.Refs[p.ID] = reportRef
 
-		config := exptypes.ParseKey(res.Metadata, exptypes.ExporterImageConfigKey, &p)
-		reportRef.Config = config
+		reportRef.Config = exptypes.ParseKey(res.Metadata, exptypes.ExporterImageConfigKey, &p)
 
 		err := walkDir(ctx, ref, "/", func(path string, info *fstypes.Stat) error {
 			reportRef.AllFiles = append(reportRef.AllFiles, path)
@@ -89,7 +89,7 @@ func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, 
 			return errors.Wrapf(err, "failed to walk ref for platform %s", p.ID)
 		}
 
-		descs, err := ref.GetRemote(ctx)
+		descs, err := ref.GetRemote(ctx, config.RefConfig{})
 		if err != nil {
 			return errors.Wrapf(err, "failed to get remote descs for platform %s", p.ID)
 		}

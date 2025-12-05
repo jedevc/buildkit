@@ -190,7 +190,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	}
 
 	store := newFilteredStore(e.opt.ImageWriter.ContentStore())
-	remotes := make(chan []ocispecs.Descriptor, 1)
+	remotes := make(chan []ocispecs.Descriptor)
 	go func() {
 		for {
 			select {

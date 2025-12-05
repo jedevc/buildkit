@@ -523,12 +523,14 @@ func (d dummyAddr) String() string {
 
 type LLBBridgeForwarder interface {
 	pb.LLBBridgeServer
+
 	Serve(ctx context.Context, attachables ...session.Attachable) context.Context
 	Done() <-chan struct{}
-	SetResult(r *frontend.Result, err error)
-	Result(ctx context.Context) (*frontend.Result, error)
 	Close() error
 	Discard()
+
+	Result(ctx context.Context) (*frontend.Result, error)
+	SetResult(r *frontend.Result, err error)
 
 	// Conn returns the stdin and stdout pipes that can be used to communicate
 	// using the gateway API
@@ -1221,6 +1223,7 @@ func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRe
 	}
 	if lbf.remotes != nil {
 		lbf.remotes <- remote.Descriptors
+		time.Sleep(100 * time.Millisecond) // give some time for the receiver to process)
 	}
 	return resp, nil
 }

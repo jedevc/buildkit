@@ -1394,6 +1394,7 @@ func (m *Compression) CloneVT() *Compression {
 	r := new(Compression)
 	r.Type = m.Type
 	r.Force = m.Force
+	r.HasLevel = m.HasLevel
 	r.Level = m.Level
 	if len(m.unknownFields) > 0 {
 		r.unknownFields = make([]byte, len(m.unknownFields))
@@ -3373,6 +3374,9 @@ func (this *Compression) EqualVT(that *Compression) bool {
 		return false
 	}
 	if this.Force != that.Force {
+		return false
+	}
+	if this.HasLevel != that.HasLevel {
 		return false
 	}
 	if this.Level != that.Level {
@@ -6800,6 +6804,16 @@ func (m *Compression) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m.Level != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Level))
 		i--
+		dAtA[i] = 0x20
+	}
+	if m.HasLevel {
+		i--
+		if m.HasLevel {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
 		dAtA[i] = 0x18
 	}
 	if m.Force {
@@ -8180,6 +8194,9 @@ func (m *Compression) SizeVT() (n int) {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.Type))
 	}
 	if m.Force {
+		n += 2
+	}
+	if m.HasLevel {
 		n += 2
 	}
 	if m.Level != 0 {
@@ -16775,6 +16792,26 @@ func (m *Compression) UnmarshalVT(dAtA []byte) error {
 			}
 			m.Force = bool(v != 0)
 		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HasLevel", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protohelpers.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.HasLevel = bool(v != 0)
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Level", wireType)
 			}

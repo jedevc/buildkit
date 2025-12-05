@@ -5,11 +5,12 @@ import (
 	"maps"
 
 	"github.com/moby/buildkit/client/buildid"
-	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/frontend/gateway/grpcclient"
 	gatewayapi "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/exporter"
+	"github.com/moby/buildkit/session/exporter/exporterprovider"
 	"github.com/moby/buildkit/util/apicaps"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -43,13 +44,26 @@ func (c *Client) BuildExport(ctx context.Context, opt SolveOpt, product string, 
 		})
 	}
 
+	var g grpcclient.GrpcClient
+	if exportFunc != nil {
+		opt.EnableSessionExporter = true
+		exporter := exporterprovider.New(func(ctx context.Context, _ map[string][]byte, _ []string) ([]*exporter.ExporterRequest, error) {
+			if g == nil {
+				return nil, errors.New("no build session found for export")
+			}
+			return nil, g.Export(ctx, c.conn, exportFunc)
+		})
+		opt.Session = append(opt.Session, exporter)
+	}
+
 	cb := func(ref string, s *session.Session, opts map[string]string) error {
 		if feOpts == nil {
 			feOpts = map[string]string{}
 		}
 		maps.Copy(feOpts, opts)
 		gwClient := c.gatewayClientForBuild(ref)
-		g, err := grpcclient.New(ctx, feOpts, s.ID(), product, gwClient, gworkers)
+		var err error
+		g, err = grpcclient.New(ctx, feOpts, s.ID(), product, gwClient, gworkers)
 		if err != nil {
 			return err
 		}
@@ -57,18 +71,9 @@ func (c *Client) BuildExport(ctx context.Context, opt SolveOpt, product string, 
 		caps := g.BuildOpts().Caps
 		gwClient.caps = &caps
 
-		result, err := g.Build(ctx, buildFunc)
+		err = g.Build(ctx, buildFunc)
 		if err != nil {
 			return errors.Wrap(err, "failed to run Build function")
-		}
-		if exportFunc != nil {
-			handle := exptypes.ExportHandle{
-				Target: exptypes.ExporterTargetUnknown,
-				Conn:   c.conn,
-			}
-			if err := exportFunc(ctx, g, handle, result); err != nil {
-				return errors.Wrap(err, "failed to run Export function")
-			}
 		}
 		return nil
 	}

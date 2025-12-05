@@ -400,13 +400,15 @@ message Descriptor {
 
 message Compression {
 	enum Type {
-		UNCOMPRESSED = 0;
-		GZIP = 1;
-		ESTARGZ = 2;
-		ZSTD = 3;
+		UNKNOWN = 0;
+		UNCOMPRESSED = 1;
+		GZIP = 2;
+		ESTARGZ = 3;
+		ZSTD = 4;
 	}
 
 	Type type = 1;
 	bool force = 2;
-	int32 level = 3;
+	bool hasLevel = 3;
+	int32 level = 4;
 }

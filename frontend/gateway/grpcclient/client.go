@@ -13,6 +13,7 @@ import (
 	"time"
 
 	distreference "github.com/distribution/reference"
+	"github.com/moby/buildkit/cache/config"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -42,7 +43,7 @@ const frontendPrefix = "BUILDKIT_FRONTEND_OPT_"
 type GrpcClient interface {
 	client.Client
 
-	Build(context.Context, client.BuildFunc) (*client.Result, error)
+	Build(context.Context, client.BuildFunc) error
 	Export(context.Context, *grpc.ClientConn, client.ExportFunc) error
 }
 
@@ -115,11 +116,10 @@ func BuildFromEnvironment(ctx context.Context, f client.BuildFunc) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to initialize client from environment")
 	}
-	_, err = client.Build(ctx, f)
-	return err
+	return client.Build(ctx, f)
 }
 
-func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (_ *client.Result, retError error) {
+func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (retError error) {
 	export := c.caps.Supports(pb.CapReturnResult) == nil
 
 	var (
@@ -228,37 +228,37 @@ func (c *grpcClient) Build(ctx context.Context, f client.BuildFunc) (_ *client.R
 	}()
 
 	if res, err = f(ctx, c); err != nil {
-		return nil, err
+		return err
 	}
 
 	if res == nil {
-		return nil, nil
+		return nil
 	}
 
 	if err := c.caps.Supports(pb.CapReturnMap); len(res.Refs) > 1 && err != nil {
-		return nil, err
+		return err
 	}
 
 	if !export {
 		exportedAttrBytes, err := json.Marshal(res.Metadata)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal return metadata")
+			return errors.Wrapf(err, "failed to marshal return metadata")
 		}
 
 		req, err := c.requestForRef(res.Ref)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to find return ref")
+			return errors.Wrapf(err, "failed to find return ref")
 		}
 
 		req.Final = true
 		req.ExporterAttr = exportedAttrBytes
 
 		if _, err := c.client.Solve(ctx, req); err != nil {
-			return nil, errors.Wrapf(err, "failed to solve")
+			return errors.Wrapf(err, "failed to solve")
 		}
 	}
 
-	return res, nil
+	return nil
 }
 
 func ExportFromEnvironment(ctx context.Context, f client.ExportFunc) error {
@@ -1378,8 +1378,14 @@ func (r *reference) StatFile(ctx context.Context, req client.StatRequest) (*fsty
 	return resp.Stat, nil
 }
 
-func (r *reference) GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error) {
-	resp, err := r.c.client.GetRemote(ctx, &pb.GetRemoteRequest{Ref: r.id})
+func (r *reference) GetRemote(ctx context.Context, cfg config.RefConfig) ([]ocispecs.Descriptor, error) {
+	if cfg.PreferNonDistributable {
+		return nil, errors.New("prefer-nondistributable is not supported over gateway")
+	}
+	resp, err := r.c.client.GetRemote(ctx, &pb.GetRemoteRequest{
+		Ref:         r.id,
+		Compression: pb.CompressionToPB(cfg.Compression),
+	})
 	if err != nil {
 		return nil, err
 	}

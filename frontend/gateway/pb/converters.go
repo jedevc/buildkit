@@ -34,12 +34,15 @@ func CompressionFromPB(pb *Compression) compression.Config {
 		return compression.New(compression.Default)
 	}
 
-	cfg := compression.New(compressTypeFromPB(pb.Type))
+	tp := compressTypeFromPB(pb.Type)
+	if tp == nil {
+		tp = compression.Default
+	}
+	cfg := compression.New(tp)
 	if pb.Force {
 		cfg = cfg.SetForce(true)
 	}
-	if pb.Level != 0 {
-		// XXX: this is a lie, 0 is a valid level?
+	if pb.HasLevel {
 		cfg = cfg.SetLevel(int(pb.Level))
 	}
 	return cfg
@@ -57,5 +60,33 @@ func compressTypeFromPB(t Compression_Type) compression.Type {
 		return compression.Zstd
 	default:
 		return nil
+	}
+}
+
+func CompressionToPB(cfg compression.Config) *Compression {
+	t := compressTypeToPB(cfg.Type)
+	pb := &Compression{
+		Type:  t,
+		Force: cfg.Force,
+	}
+	if cfg.Level != nil {
+		pb.HasLevel = true
+		pb.Level = int32(*cfg.Level)
+	}
+	return pb
+}
+
+func compressTypeToPB(t compression.Type) Compression_Type {
+	switch t {
+	case compression.Uncompressed:
+		return Compression_UNCOMPRESSED
+	case compression.Gzip:
+		return Compression_GZIP
+	case compression.EStargz:
+		return Compression_ESTARGZ
+	case compression.Zstd:
+		return Compression_ZSTD
+	default:
+		return Compression_UNKNOWN
 	}
 }

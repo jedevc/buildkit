@@ -123,25 +123,28 @@ func (InTotoSubjectKind) EnumDescriptor() ([]byte, []int) {
 type Compression_Type int32
 
 const (
-	Compression_UNCOMPRESSED Compression_Type = 0
-	Compression_GZIP         Compression_Type = 1
-	Compression_ESTARGZ      Compression_Type = 2
-	Compression_ZSTD         Compression_Type = 3
+	Compression_UNKNOWN      Compression_Type = 0
+	Compression_UNCOMPRESSED Compression_Type = 1
+	Compression_GZIP         Compression_Type = 2
+	Compression_ESTARGZ      Compression_Type = 3
+	Compression_ZSTD         Compression_Type = 4
 )
 
 // Enum value maps for Compression_Type.
 var (
 	Compression_Type_name = map[int32]string{
-		0: "UNCOMPRESSED",
-		1: "GZIP",
-		2: "ESTARGZ",
-		3: "ZSTD",
+		0: "UNKNOWN",
+		1: "UNCOMPRESSED",
+		2: "GZIP",
+		3: "ESTARGZ",
+		4: "ZSTD",
 	}
 	Compression_Type_value = map[string]int32{
-		"UNCOMPRESSED": 0,
-		"GZIP":         1,
-		"ESTARGZ":      2,
-		"ZSTD":         3,
+		"UNKNOWN":      0,
+		"UNCOMPRESSED": 1,
+		"GZIP":         2,
+		"ESTARGZ":      3,
+		"ZSTD":         4,
 	}
 )
 
@@ -3450,7 +3453,8 @@ type Compression struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          Compression_Type       `protobuf:"varint,1,opt,name=type,proto3,enum=moby.buildkit.v1.frontend.Compression_Type" json:"type,omitempty"`
 	Force         bool                   `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
-	Level         int32                  `protobuf:"varint,3,opt,name=level,proto3" json:"level,omitempty"`
+	HasLevel      bool                   `protobuf:"varint,3,opt,name=hasLevel,proto3" json:"hasLevel,omitempty"`
+	Level         int32                  `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3489,12 +3493,19 @@ func (x *Compression) GetType() Compression_Type {
 	if x != nil {
 		return x.Type
 	}
-	return Compression_UNCOMPRESSED
+	return Compression_UNKNOWN
 }
 
 func (x *Compression) GetForce() bool {
 	if x != nil {
 		return x.Force
+	}
+	return false
+}
+
+func (x *Compression) GetHasLevel() bool {
+	if x != nil {
+		return x.HasLevel
 	}
 	return false
 }
@@ -3757,16 +3768,18 @@ const file_github_com_moby_buildkit_frontend_gateway_pb_gateway_proto_rawDesc = 
 	"\vannotations\x18\x05 \x03(\v26.moby.buildkit.v1.frontend.Descriptor.AnnotationsEntryR\vannotations\x1a>\n" +
 	"\x10AnnotationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb5\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x01\n" +
 	"\vCompression\x12?\n" +
 	"\x04type\x18\x01 \x01(\x0e2+.moby.buildkit.v1.frontend.Compression.TypeR\x04type\x12\x14\n" +
-	"\x05force\x18\x02 \x01(\bR\x05force\x12\x14\n" +
-	"\x05level\x18\x03 \x01(\x05R\x05level\"9\n" +
-	"\x04Type\x12\x10\n" +
-	"\fUNCOMPRESSED\x10\x00\x12\b\n" +
-	"\x04GZIP\x10\x01\x12\v\n" +
-	"\aESTARGZ\x10\x02\x12\b\n" +
-	"\x04ZSTD\x10\x03*)\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\x12\x1a\n" +
+	"\bhasLevel\x18\x03 \x01(\bR\bhasLevel\x12\x14\n" +
+	"\x05level\x18\x04 \x01(\x05R\x05level\"F\n" +
+	"\x04Type\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\x10\n" +
+	"\fUNCOMPRESSED\x10\x01\x12\b\n" +
+	"\x04GZIP\x10\x02\x12\v\n" +
+	"\aESTARGZ\x10\x03\x12\b\n" +
+	"\x04ZSTD\x10\x04*)\n" +
 	"\x0fAttestationKind\x12\n" +
 	"\n" +
 	"\x06InToto\x10\x00\x12\n" +

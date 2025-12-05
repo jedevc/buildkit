@@ -23,7 +23,6 @@ import (
 	opspb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/solver/result"
 	"github.com/moby/buildkit/util/apicaps"
-	"github.com/moby/buildkit/util/compression"
 	"github.com/moby/buildkit/worker"
 	digest "github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -385,7 +384,11 @@ func (r *ref) StatFile(ctx context.Context, req client.StatRequest) (*fstypes.St
 	return cacheutil.StatFile(ctx, m, req.Path)
 }
 
-func (r *ref) GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error) {
+func (r *ref) GetRemote(ctx context.Context, cfg config.RefConfig) ([]ocispecs.Descriptor, error) {
+	if cfg.PreferNonDistributable {
+		return nil, errors.New("prefer-nondistributable is not supported over gateway")
+	}
+
 	rr, err := r.resultProxy.Result(ctx)
 	if err != nil {
 		return nil, r.c.wrapSolveError(err)
@@ -395,10 +398,7 @@ func (r *ref) GetRemote(ctx context.Context) ([]ocispecs.Descriptor, error) {
 		return nil, errors.Errorf("invalid ref: %T", rr.Sys())
 	}
 
-	rc := config.RefConfig{
-		Compression: compression.New(compression.Default),
-	}
-	remotes, err := ref.ImmutableRef.GetRemotes(ctx, true, rc, false, session.NewGroup(r.c.sid))
+	remotes, err := ref.ImmutableRef.GetRemotes(ctx, true, cfg, false, session.NewGroup(r.c.sid))
 	if err != nil {
 		return nil, err
 	}
