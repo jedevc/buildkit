@@ -1099,10 +1099,11 @@ func (lbf *llbBridgeForwarder) SetResult(result *frontend.Result, err error) {
 	if result != nil {
 		lbf.result = result
 	}
-	if err != nil {
+	if err != nil && lbf.err == nil {
 		// An existing error (set via Return rpc) takes
 		// precedence over this error
 		lbf.err = err
+		lbf.result = nil
 	}
 	lbf.mu.Unlock()
 }
