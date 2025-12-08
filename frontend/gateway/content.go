@@ -4,45 +4,53 @@ import (
 	"context"
 	"sync"
 
-	api "github.com/containerd/containerd/api/services/content/v1"
 	"github.com/containerd/containerd/v2/core/content"
-	"github.com/containerd/containerd/v2/plugins/services/content/contentserver"
 	cerrdefs "github.com/containerd/errdefs"
 	digest "github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 )
 
-type proxyStore struct {
-	store content.Store
+type storeFilter struct {
+	allowed map[digest.Digest]ocispecs.Descriptor
+	mu      sync.Mutex
 }
 
-func (s *proxyStore) Register(server *grpc.Server) {
-	service := contentserver.New(s.store)
-	api.RegisterContentServer(server, service)
+func (f *storeFilter) allow(descs ...ocispecs.Descriptor) {
+	f.mu.Lock()
+	if f.allowed == nil {
+		f.allowed = make(map[digest.Digest]ocispecs.Descriptor)
+	}
+	for _, desc := range descs {
+		f.allowed[desc.Digest] = desc
+	}
+	f.mu.Unlock()
+}
+
+func (f *storeFilter) isAllowed(desc ocispecs.Descriptor) bool {
+	f.mu.Lock()
+	_, allowed := f.allowed[desc.Digest]
+	f.mu.Unlock()
+	return allowed
+}
+
+func (f *storeFilter) isDigestAllowed(dgst digest.Digest) bool {
+	f.mu.Lock()
+	_, allowed := f.allowed[dgst]
+	f.mu.Unlock()
+	return allowed
 }
 
 type filteredStore struct {
 	content.Store
-
-	mu      sync.Mutex
-	allowed map[digest.Digest]struct{}
+	*storeFilter
 }
 
-func newFilteredStore(store content.Store) *filteredStore {
+func newFilteredStore(store content.Store, filter *storeFilter) content.Store {
 	return &filteredStore{
-		Store:   store,
-		allowed: make(map[digest.Digest]struct{}),
+		Store:       store,
+		storeFilter: filter,
 	}
-}
-
-func (cs *filteredStore) allow(descs ...ocispecs.Descriptor) {
-	cs.mu.Lock()
-	for _, desc := range descs {
-		cs.allowed[desc.Digest] = struct{}{}
-	}
-	cs.mu.Unlock()
 }
 
 func (cs *filteredStore) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
@@ -62,24 +70,14 @@ func (cs *filteredStore) Abort(ctx context.Context, ref string) error {
 }
 
 func (cs *filteredStore) ReaderAt(ctx context.Context, desc ocispecs.Descriptor) (content.ReaderAt, error) {
-	allowed := false
-	cs.mu.Lock()
-	_, allowed = cs.allowed[desc.Digest]
-	cs.mu.Unlock()
-
-	if !allowed {
+	if !cs.isAllowed(desc) {
 		return nil, cerrdefs.ErrNotFound
 	}
 	return cs.Store.ReaderAt(ctx, desc)
 }
 
 func (cs *filteredStore) Info(ctx context.Context, dgst digest.Digest) (content.Info, error) {
-	allowed := false
-	cs.mu.Lock()
-	_, allowed = cs.allowed[dgst]
-	cs.mu.Unlock()
-
-	if !allowed {
+	if !cs.isDigestAllowed(dgst) {
 		return content.Info{}, cerrdefs.ErrNotFound
 	}
 	return cs.Store.Info(ctx, dgst)

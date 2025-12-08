@@ -21,6 +21,7 @@ import (
 	_ "github.com/moby/buildkit/util/grpcutil/encoding/proto"
 	"github.com/moby/buildkit/util/staticfs"
 	digest "github.com/opencontainers/go-digest"
+	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	fstypes "github.com/tonistiigi/fsutil/types"
 )
@@ -45,7 +46,7 @@ type reportRef struct {
 
 	AllFiles []string `json:"all_files"`
 
-	Layers     []digest.Digest            `json:"layers"`
+	Layers     []ocispecs.Descriptor      `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
 
 	Attestations []intoto.Statement `json:"attestations"`
@@ -96,7 +97,7 @@ func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, 
 
 		reportRef.LayerFiles = map[digest.Digest][]string{}
 		for _, desc := range descs {
-			reportRef.Layers = append(reportRef.Layers, desc.Digest)
+			reportRef.Layers = append(reportRef.Layers, desc)
 
 			err := func() (rerr error) {
 				r, err := store.ReaderAt(ctx, desc)
@@ -152,6 +153,28 @@ func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, 
 		}
 	}
 
+	if descs, ok := opts["fetch-descs"]; ok {
+		var fetchDescs []ocispecs.Descriptor
+		if err := json.Unmarshal([]byte(descs), &fetchDescs); err != nil {
+			return errors.Wrap(err, "failed to unmarshal fetch-descs")
+		}
+
+		store := handle.ContentStore()
+		for _, desc := range fetchDescs {
+			r, err := store.ReaderAt(ctx, desc)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get reader for fetch-desc %s", desc.Digest)
+			}
+			defer r.Close()
+			sr := io.NewSectionReader(r, 0, r.Size())
+
+			_, err = io.Copy(io.Discard, sr)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read fetch-desc %s", desc.Digest)
+			}
+		}
+	}
+
 	out, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal report")
@@ -177,8 +200,6 @@ func export(ctx context.Context, c client.Client, handle exptypes.ExportHandle, 
 		fs := staticfs.NewFS()
 		fs.Add("report.json", &fstypes.Stat{Mode: 0644}, out)
 		return handle.SendFS(ctx, fs)
-	default:
-		return errors.Errorf("unsupported export target: %s", handle.Target)
 	}
 
 	return nil

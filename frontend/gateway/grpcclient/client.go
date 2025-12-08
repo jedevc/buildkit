@@ -287,6 +287,27 @@ func (c *grpcClient) Export(ctx context.Context, conn *grpc.ClientConn, f client
 		return errors.Errorf("no result returned from gateway")
 	}
 
+	defer func() {
+		if retError != nil {
+			st, _ := status.FromError(grpcerrors.ToGRPC(ctx, retError))
+			stp := st.Proto()
+			req := &pb.ReturnRequest{}
+			req.Error = &spb.Status{
+				Code:    stp.Code,
+				Message: stp.Message,
+				Details: stp.Details,
+			}
+			_, _ = c.client.Return(ctx, req)
+		}
+	}()
+
+	defer func() {
+		err = c.execMsgs.Release()
+		if err != nil && retError != nil {
+			retError = err
+		}
+	}()
+
 	handle := exptypes.ExportHandle{
 		Conn:   conn,
 		Target: exportTarget(),

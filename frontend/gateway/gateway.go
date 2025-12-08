@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/mount"
 	"github.com/containerd/containerd/v2/defaults"
 	"github.com/distribution/reference"
@@ -419,13 +420,14 @@ func (lbf *llbBridgeForwarder) setResult(r *frontend.Result, err error) (*pb.Ret
 		return nil, errors.New("gateway return must be either result or err")
 	}
 
-	if lbf.result != nil || lbf.err != nil {
+	if lbf.done {
 		return nil, errors.New("gateway result is already set")
 	}
 
 	lbf.result = r
 	lbf.err = err
 	close(lbf.doneCh)
+	lbf.done = true
 	return &pb.ReturnResponse{}, nil
 }
 
@@ -461,6 +463,7 @@ func NewBridgeForwarder(ctx context.Context, llbBridge frontend.FrontendLLBBridg
 		sm:            sm,
 		ctrs:          map[string]gwclient.Container{},
 		executor:      exec,
+		storeFilter:   &storeFilter{},
 	}
 	return lbf
 }
@@ -532,12 +535,11 @@ type LLBBridgeForwarder interface {
 	Result(ctx context.Context) (*frontend.Result, error)
 	SetResult(r *frontend.Result, err error)
 
+	Store(store content.Store) content.Store
+
 	// Conn returns the stdin and stdout pipes that can be used to communicate
 	// using the gateway API
 	Conn() (io.ReadCloser, io.WriteCloser)
-
-	// XXX: die
-	WithRemotes(chan<- []ocispecs.Descriptor)
 }
 
 type llbBridgeForwarder struct {
@@ -549,6 +551,7 @@ type llbBridgeForwarder struct {
 	// lastRef      solver.CachedResult
 	// lastRefs     map[string]solver.CachedResult
 	// err          error
+	done              bool
 	doneCh            chan struct{} // closed when result or err become valid through a call to a Return
 	result            *frontend.Result
 	err               error
@@ -559,9 +562,9 @@ type llbBridgeForwarder struct {
 	sm                *session.Manager
 	executor          executor.Executor
 	*pipe
-	ctrs    map[string]gwclient.Container
-	ctrsMu  sync.Mutex
-	remotes chan<- []ocispecs.Descriptor
+	ctrs        map[string]gwclient.Container
+	ctrsMu      sync.Mutex
+	storeFilter *storeFilter
 }
 
 func (lbf *llbBridgeForwarder) Serve(ctx context.Context, attachables ...session.Attachable) context.Context {
@@ -1190,9 +1193,8 @@ func (lbf *llbBridgeForwarder) GetReturn(ctx context.Context, in *pb.GetReturnRe
 	return resp, nil
 }
 
-func (lbf *llbBridgeForwarder) WithRemotes(remotes chan<- []ocispecs.Descriptor) {
-	// XXX: mutex? or just a different approach lol
-	lbf.remotes = remotes
+func (lbf *llbBridgeForwarder) Store(store content.Store) content.Store {
+	return newFilteredStore(store, lbf.storeFilter)
 }
 
 func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRequest) (*pb.GetRemoteResponse, error) {
@@ -1221,10 +1223,7 @@ func (lbf *llbBridgeForwarder) GetRemote(ctx context.Context, in *pb.GetRemoteRe
 	for _, desc := range remote.Descriptors {
 		resp.Descriptors = append(resp.Descriptors, pb.DescriptorToPB(desc))
 	}
-	if lbf.remotes != nil {
-		lbf.remotes <- remote.Descriptors
-		time.Sleep(100 * time.Millisecond) // give some time for the receiver to process)
-	}
+	lbf.storeFilter.allow(remote.Descriptors...)
 	return resp, nil
 }
 

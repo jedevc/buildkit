@@ -62,13 +62,13 @@ func New(opt Opt) (exporter.Exporter, error) {
 	return im, nil
 }
 
-func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string, opt map[string]string, target exptypes.ExporterTarget) (exporter.ExporterInstance, error) {
+func (e *imageExporter) Resolve(ctx context.Context, id int, opts exporter.ResolveOpts) (exporter.ExporterInstance, error) {
 	i := &imageExporterInstance{
 		imageExporter: e,
 		id:            id,
-		attrs:         opt,
+		opts:          opts,
 		tar:           true,
-		opts: containerimage.ImageCommitOpts{
+		image: containerimage.ImageCommitOpts{
 			RefCfg: cacheconfig.RefConfig{
 				Compression: compression.New(compression.Default),
 			},
@@ -76,7 +76,7 @@ func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string
 		},
 	}
 
-	opt, err := i.opts.Load(ctx, opt)
+	opt, err := i.image.Load(ctx, opts.Attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +101,16 @@ func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string
 		}
 	}
 
-	if target != exptypes.ExporterTargetUnknown {
-		if i.tar && target != exptypes.ExporterTargetFile {
+	if i.tar {
+		if opts.Target != exptypes.ExporterTargetFile && opts.Target != exptypes.ExporterTargetUnknown {
 			return nil, errors.Errorf("tar=true exporter only supports file target")
 		}
-		if !i.tar && target != exptypes.ExporterTargetStore {
+		opts.Target = exptypes.ExporterTargetFile
+	} else {
+		if opts.Target != exptypes.ExporterTargetStore && opts.Target != exptypes.ExporterTargetUnknown {
 			return nil, errors.Errorf("tar=false exporter only supports content store target")
 		}
+		opts.Target = exptypes.ExporterTargetStore
 	}
 
 	return i, nil
@@ -115,12 +118,12 @@ func (e *imageExporter) Resolve(ctx context.Context, id int, _ map[string]string
 
 type imageExporterInstance struct {
 	*imageExporter
-	id    int
-	attrs map[string]string
+	id   int
+	opts exporter.ResolveOpts
 
-	opts containerimage.ImageCommitOpts
-	tar  bool
-	meta map[string][]byte
+	image containerimage.ImageCommitOpts
+	tar   bool
+	meta  map[string][]byte
 }
 
 func (e *imageExporterInstance) ID() int {
@@ -135,8 +138,8 @@ func (e *imageExporterInstance) Type() string {
 	return string(e.opt.Variant)
 }
 
-func (e *imageExporterInstance) Attrs() map[string]string {
-	return e.attrs
+func (e *imageExporterInstance) Opts() exporter.ResolveOpts {
+	return e.opts
 }
 
 func (e *imageExporterInstance) Target() exptypes.ExporterTarget {
@@ -147,7 +150,7 @@ func (e *imageExporterInstance) Target() exptypes.ExporterTarget {
 }
 
 func (e *imageExporterInstance) Config() *exporter.Config {
-	return exporter.NewConfigWithCompression(e.opts.RefCfg.Compression)
+	return exporter.NewConfigWithCompression(e.image.RefCfg.Compression)
 }
 
 func (e *imageExporterInstance) Export(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, src *exporter.Source, inlineCache exptypes.InlineCache, sessionID string) (_ map[string]string, descref exporter.DescriptorReference, err error) {
@@ -161,7 +164,7 @@ func (e *imageExporterInstance) Export(ctx context.Context, llbBridge frontend.F
 	}
 	maps.Copy(src.Metadata, e.meta)
 
-	opts := e.opts
+	opts := e.image
 	as, _, err := containerimage.ParseAnnotations(src.Metadata)
 	if err != nil {
 		return nil, nil, err
@@ -213,11 +216,11 @@ func (e *imageExporterInstance) Export(ctx context.Context, llbBridge frontend.F
 	}
 	resp[exptypes.ExporterImageDescriptorKey] = base64.StdEncoding.EncodeToString(dtdesc)
 
-	if n, ok := src.Metadata["image.name"]; e.opts.ImageName == "*" && ok {
-		e.opts.ImageName = string(n)
+	if n, ok := src.Metadata["image.name"]; e.image.ImageName == "*" && ok {
+		e.image.ImageName = string(n)
 	}
 
-	names, err := normalizedNames(e.opts.ImageName)
+	names, err := normalizedNames(e.image.ImageName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,7 +261,7 @@ func (e *imageExporterInstance) Export(ctx context.Context, llbBridge frontend.F
 			if ref == nil {
 				return nil
 			}
-			remotes, err := ref.GetRemotes(egCtx, false, e.opts.RefCfg, false, session.NewGroup(sessionID))
+			remotes, err := ref.GetRemotes(egCtx, false, e.image.RefCfg, false, session.NewGroup(sessionID))
 			if err != nil {
 				return err
 			}

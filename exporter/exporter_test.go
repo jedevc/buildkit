@@ -27,7 +27,6 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 	"github.com/tonistiigi/fsutil"
-	"golang.org/x/sync/errgroup"
 )
 
 func init() {
@@ -50,7 +49,7 @@ func TestExporterIntegration(t *testing.T) {
 }
 
 func testIntegration(t *testing.T, funcs ...func(t *testing.T, sb integration.Sandbox)) {
-	// XXX: to build custom exporters we need base images to be available
+	// NOTE: to build the test exporter image, we need to mirror all the Dockerfile images
 	mirroredImages := integration.OfficialImages("golang:1.25-alpine3.22")
 	mirroredImages["tonistiigi/xx:1.6.1"] = "docker.io/tonistiigi/xx:1.6.1"
 	mirrors := integration.WithMirroredImages(mirroredImages)
@@ -94,7 +93,11 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 		if err != nil {
 			return err
 		}
-		foundDescs = filterAvailableDescriptors(ctx, handle.ContentStore(), descs)
+		err = checkDescriptors(ctx, handle.ContentStore(), descs)
+		if err != nil {
+			return err
+		}
+		foundDescs = descs
 
 		return nil
 	}
@@ -107,19 +110,28 @@ func testGatewayExporter(t *testing.T, sb integration.Sandbox) {
 }
 
 func testGatewayIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
-	// XXX: isolation doesn't work here, because this content store isn't
-	// hosted through the gateway exporter
-	t.SkipNow()
-
 	workers.CheckFeatureCompat(t, sb, workers.FeatureOCIExporter, workers.FeatureOCILayout)
 
 	c, err := client.New(sb.Context(), sb.Address())
 	require.NoError(t, err)
 	defer c.Close()
 
+	p := platforms.DefaultSpec()
+	ps := platforms.Format(p)
+
+	registry, err := sb.NewRegistry()
+	if errors.Is(err, integration.ErrRequirements) {
+		t.Skip(err.Error())
+	}
+	require.NoError(t, err)
+
+	exporter := registry + "/buildkit/exporter/sample-isolate:latest"
+	err = buildTestExporter(sb.Context(), c, exporter)
+	require.NoError(t, err)
+
 	frontend := func(content string) gateway.BuildFunc {
 		return func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
-			st := llb.Scratch().File(llb.Mkfile("/foo.txt", 0644, []byte(content)))
+			st := llb.Scratch().File(llb.Mkfile("/file.txt", 0644, []byte(content)))
 			def, err := st.Marshal(sb.Context())
 			if err != nil {
 				return nil, err
@@ -130,70 +142,63 @@ func testGatewayIsolatedRemotes(t *testing.T, sb integration.Sandbox) {
 		}
 	}
 
-	descs := make(chan []ocispecs.Descriptor)
-	export1 := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
-		desc, err := result.Ref.GetRemote(ctx, config.RefConfig{})
-		if err != nil {
-			return err
-		}
-		// check that all descriptors are readable
-		require.Equal(t, desc, filterAvailableDescriptors(ctx, handle.ContentStore(), desc))
-		descs <- desc
-		return nil
-	}
-	export2 := func(ctx context.Context, c gateway.Client, handle exptypes.ExportHandle, result *gateway.Result) error {
-		desc := <-descs
-		// check that none of the descriptors are readable
-		require.Empty(t, filterAvailableDescriptors(ctx, handle.ContentStore(), desc))
-		return nil
+	destFile := filepath.Join(t.TempDir(), "output.txt")
+	fileOutput := func(map[string]string) (io.WriteCloser, error) {
+		return os.Create(destFile)
 	}
 
-	eg, ctx := errgroup.WithContext(sb.Context())
-	eg.Go(func() error {
-		_, err := c.BuildExport(ctx, client.SolveOpt{}, "", frontend("first"), export1, nil)
-		return err
-	})
-	eg.Go(func() error {
-		_, err := c.BuildExport(ctx, client.SolveOpt{}, "", frontend("second"), export2, nil)
-		return err
-	})
-	err = eg.Wait()
+	_, err = c.Build(sb.Context(), client.SolveOpt{
+		Exports: []client.ExportEntry{
+			{
+				Type:   "gateway",
+				Output: fileOutput,
+				Attrs: map[string]string{
+					"source": exporter,
+				},
+			},
+		},
+	}, "", frontend("foo"), nil)
 	require.NoError(t, err)
-}
 
-func filterAvailableDescriptors(ctx context.Context, store content.Store, descs []ocispecs.Descriptor) (result []ocispecs.Descriptor) {
-	for _, desc := range descs {
-		r, err := store.ReaderAt(ctx, desc)
-		if err != nil {
-			// XXX: check for specific error
-			continue
-		}
-		defer r.Close()
-		sr := io.NewSectionReader(r, 0, r.Size())
-		_, err = io.Copy(io.Discard, sr)
-		if err != nil {
-			// XXX: check for specific error
-			continue
-		}
-		result = append(result, desc)
-	}
-	return result
-}
+	reportData, err := os.ReadFile(destFile)
+	require.NoError(t, err)
+	report := &report{}
+	err = json.Unmarshal(reportData, report)
+	require.NoError(t, err)
+	require.NotEmpty(t, report.Refs)
+	require.NotEmpty(t, report.Refs[ps].Layers)
 
-func checkAllDescriptors(ctx context.Context, store content.Store, descs []ocispecs.Descriptor) error {
-	for _, desc := range descs {
-		r, err := store.ReaderAt(ctx, desc)
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-		sr := io.NewSectionReader(r, 0, r.Size())
-		_, err = io.Copy(io.Discard, sr)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	descsDt, err := json.Marshal(report.Refs[ps].Layers)
+	require.NoError(t, err)
+
+	_, err = c.Build(sb.Context(), client.SolveOpt{
+		Exports: []client.ExportEntry{
+			{
+				Type: "gateway",
+				Attrs: map[string]string{
+					"source":      exporter,
+					"fetch-descs": string(descsDt),
+				},
+			},
+		},
+	}, "", frontend("foo"), nil)
+	// should succeed, because this is the same content, so it's accessible
+	require.NoError(t, err)
+
+	_, err = c.Build(sb.Context(), client.SolveOpt{
+		Exports: []client.ExportEntry{
+			{
+				Type: "gateway",
+				Attrs: map[string]string{
+					"source":      exporter,
+					"fetch-descs": string(descsDt),
+				},
+			},
+		},
+	}, "", frontend("bar"), nil)
+	// should fail because the content store is isolated per build
+	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to get reader for fetch-desc")
 }
 
 func testExternalExporter(t *testing.T, sb integration.Sandbox) {
@@ -210,7 +215,7 @@ func testExternalExporter(t *testing.T, sb integration.Sandbox) {
 	require.NoError(t, err)
 
 	exporter := registry + "/buildkit/exporter/sample:latest"
-	err = buildSampleExporter(sb.Context(), c, exporter)
+	err = buildTestExporter(sb.Context(), c, exporter)
 	require.NoError(t, err)
 
 	destFile := filepath.Join(t.TempDir(), "output.txt")
@@ -313,8 +318,8 @@ func testExternalExporter(t *testing.T, sb integration.Sandbox) {
 
 			// layers read using content api
 			require.Equal(t, 2, len(ref.Layers))
-			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0]])
-			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1]])
+			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0].Digest])
+			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1].Digest])
 
 			// attestations created
 			require.GreaterOrEqual(t, len(ref.Attestations), 1)
@@ -341,7 +346,7 @@ func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 	require.NoError(t, err)
 
 	exporter := registry + "/buildkit/exporter/sample-mp:latest"
-	err = buildSampleExporter(sb.Context(), c, exporter)
+	err = buildTestExporter(sb.Context(), c, exporter)
 	require.NoError(t, err)
 
 	destFile := filepath.Join(t.TempDir(), "output.txt")
@@ -462,8 +467,8 @@ func testExternalExporterMultiplatform(t *testing.T, sb integration.Sandbox) {
 
 			// layers read using content api
 			require.Equal(t, 2, len(ref.Layers))
-			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0]])
-			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1]])
+			require.Equal(t, []string{"foo.txt"}, ref.LayerFiles[ref.Layers[0].Digest])
+			require.Equal(t, []string{"bar.txt"}, ref.LayerFiles[ref.Layers[1].Digest])
 
 			// attestations created
 			require.GreaterOrEqual(t, len(ref.Attestations), 1)
@@ -504,7 +509,7 @@ func testGatewayExporterCompression(t *testing.T, sb integration.Sandbox) {
 		if err != nil {
 			return err
 		}
-		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+		if err := checkDescriptors(ctx, store, descs); err != nil {
 			return err
 		}
 		uncompressedDescs = descs
@@ -515,7 +520,7 @@ func testGatewayExporterCompression(t *testing.T, sb integration.Sandbox) {
 		if err != nil {
 			return err
 		}
-		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+		if err := checkDescriptors(ctx, store, descs); err != nil {
 			return err
 		}
 		gzipDescs = descs
@@ -526,7 +531,7 @@ func testGatewayExporterCompression(t *testing.T, sb integration.Sandbox) {
 		if err != nil {
 			return err
 		}
-		if err := checkAllDescriptors(ctx, store, descs); err != nil {
+		if err := checkDescriptors(ctx, store, descs); err != nil {
 			return err
 		}
 		zstdDescs = descs
@@ -553,7 +558,7 @@ func testGatewayExporterCompression(t *testing.T, sb integration.Sandbox) {
 	}
 }
 
-func buildSampleExporter(ctx context.Context, c *client.Client, dest string) error {
+func buildTestExporter(ctx context.Context, c *client.Client, dest string) error {
 	gatewayDir, err := fsutil.NewFS(integration.BuildkitSourcePath)
 	if err != nil {
 		return err
@@ -563,7 +568,7 @@ func buildSampleExporter(ctx context.Context, c *client.Client, dest string) err
 	_, err = c.Solve(ctx, nil, client.SolveOpt{
 		Frontend: "dockerfile.v0",
 		FrontendAttrs: map[string]string{
-			"filename": "exporter/gateway/sample/Dockerfile",
+			"filename": "exporter/gateway/test/Dockerfile",
 		},
 		LocalMounts: map[string]fsutil.FS{
 			dockerui.DefaultLocalNameDockerfile: gatewayDir,
@@ -595,8 +600,24 @@ type reportRef struct {
 
 	AllFiles []string `json:"all_files"`
 
-	Layers     []digest.Digest            `json:"layers"`
+	Layers     []ocispecs.Descriptor      `json:"layers"`
 	LayerFiles map[digest.Digest][]string `json:"layer_files"`
 
 	Attestations []intoto.Statement `json:"attestations"`
+}
+
+func checkDescriptors(ctx context.Context, store content.Store, descs []ocispecs.Descriptor) error {
+	for _, desc := range descs {
+		r, err := store.ReaderAt(ctx, desc)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		sr := io.NewSectionReader(r, 0, r.Size())
+		_, err = io.Copy(io.Discard, sr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -19,13 +19,13 @@ ARG BUILDTAGS=""
 ARG TARGETPLATFORM
 RUN --mount=target=. --mount=type=cache,target=/root/.cache \
   --mount=target=/go/pkg/mod,type=cache \
-  CGO_ENABLED=0 xx-go build -o /sample-exporter -tags "$BUILDTAGS netgo static_build osusergo" ./exporter/gateway/sample && \
-  xx-verify --static /sample-exporter
+  CGO_ENABLED=0 xx-go build -o /test-exporter -tags "$BUILDTAGS netgo static_build osusergo" ./exporter/gateway/test && \
+  xx-verify --static /test-exporter
 
 FROM scratch AS release
 LABEL moby.buildkit.frontend.network.none="true"
 # LABEL moby.buildkit.frontend.caps="" # currently no caps defined
-COPY --from=build /sample-exporter /bin/sample-exporter
-ENTRYPOINT ["/bin/sample-exporter"]
+COPY --from=build /test-exporter /bin/test-exporter
+ENTRYPOINT ["/bin/test-exporter"]
 
 FROM release

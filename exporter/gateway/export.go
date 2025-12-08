@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	api "github.com/containerd/containerd/api/services/content/v1"
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/leases"
+	"github.com/containerd/containerd/v2/plugins/services/content/contentserver"
 	"github.com/moby/buildkit/cache"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/executor"
@@ -21,8 +24,8 @@ import (
 	"github.com/moby/buildkit/solver"
 	"github.com/moby/buildkit/util/progress/logs"
 	"github.com/moby/buildkit/worker"
-	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -47,20 +50,18 @@ func New(opt Opt) (exporter.Exporter, error) {
 	return im, nil
 }
 
-func (e *gatewayExporter) Resolve(ctx context.Context, id int, frontendAttrs map[string]string, exporterAttrs map[string]string, target exptypes.ExporterTarget) (exporter.ExporterInstance, error) {
+func (e *gatewayExporter) Resolve(ctx context.Context, id int, opts exporter.ResolveOpts) (exporter.ExporterInstance, error) {
 	i := &gatewayExporterInstance{
 		gatewayExporter: e,
 		id:              id,
-		frontendAttrs:   frontendAttrs,
-		target:          target,
-		attrs:           exporterAttrs,
+		opts:            opts,
 		workerInfo: workerInfo{
 			cm:   e.opt.CacheManager,
 			info: e.opt.WorkerInfo,
 		},
 	}
 
-	for k, v := range exporterAttrs {
+	for k, v := range opts.Attrs {
 		switch k {
 		case keySource:
 			i.image = v
@@ -77,11 +78,10 @@ func (e *gatewayExporter) Resolve(ctx context.Context, id int, frontendAttrs map
 
 type gatewayExporterInstance struct {
 	*gatewayExporter
-	id            int
-	workerInfo    worker.Infos
-	target        exptypes.ExporterTarget
-	frontendAttrs map[string]string
-	attrs         map[string]string
+	id   int
+	opts exporter.ResolveOpts
+
+	workerInfo worker.Infos
 
 	image string
 
@@ -100,12 +100,8 @@ func (e *gatewayExporterInstance) Type() string {
 	return client.ExporterGateway
 }
 
-func (e *gatewayExporterInstance) Attrs() map[string]string {
-	return e.attrs
-}
-
-func (e *gatewayExporterInstance) Target() exptypes.ExporterTarget {
-	return e.target
+func (e *gatewayExporterInstance) Opts() exporter.ResolveOpts {
+	return e.opts
 }
 
 func (e *gatewayExporterInstance) Config() *exporter.Config {
@@ -113,7 +109,7 @@ func (e *gatewayExporterInstance) Config() *exporter.Config {
 }
 
 func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend.FrontendLLBBridge, exec executor.Executor, src *exporter.Source, inlineCache exptypes.InlineCache, sessionID string) (_ map[string]string, descref exporter.DescriptorReference, err error) {
-	c, err := forwarder.LLBBridgeToGatewayClient(ctx, llbBridge, exec, e.frontendAttrs, nil, e.workerInfo, sessionID, e.opt.SessionManager)
+	c, err := forwarder.LLBBridgeToGatewayClient(ctx, llbBridge, exec, e.opts.FrontendAttrs, nil, e.workerInfo, sessionID, e.opt.SessionManager)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -166,7 +162,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	if err != nil {
 		return nil, nil, err
 	}
-	meta.Env = append(meta.Env, "BUILDKIT_EXPORTER_TARGET="+e.Target().String())
+	meta.Env = append(meta.Env, "BUILDKIT_EXPORTER_TARGET="+e.opts.Target.String())
 
 	err = gateway.CheckCaps(*img, opts, nil, mfstDigest)
 	if err != nil {
@@ -182,28 +178,14 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	lbf.SetResult(src.FrontendResult, nil)
 
 	attachables := []session.Attachable{}
-	switch e.target {
+	attachables = append(attachables, &proxyStore{lbf.Store(e.opt.ImageWriter.ContentStore())})
+	switch e.opts.Target {
 	case exptypes.ExporterTargetFile:
 		attachables = append(attachables, &filesync.ProxyStreamWriter{Caller: caller, ExporterID: e.id})
 	case exptypes.ExporterTargetDirectory:
 		attachables = append(attachables, &filesync.ProxyDiffCopy{Caller: caller, ExporterID: e.id})
 	}
 
-	store := newFilteredStore(e.opt.ImageWriter.ContentStore())
-	remotes := make(chan []ocispecs.Descriptor)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case descs := <-remotes:
-				store.allow(descs...)
-			}
-		}
-	}()
-	lbf.WithRemotes(remotes)
-
-	attachables = append(attachables, &proxyStore{store})
 	ctx = lbf.Serve(ctx, attachables...)
 	defer lbf.Close()
 	defer lbf.Discard()
@@ -236,6 +218,7 @@ func (e *gatewayExporterInstance) Export(ctx context.Context, llbBridge frontend
 	}
 
 	_, err = lbf.Result(ctx)
+	fmt.Println("error:", err)
 	return nil, nil, err
 }
 
@@ -250,4 +233,13 @@ func (i workerInfo) DefaultCacheManager() (cache.Manager, error) {
 
 func (i workerInfo) WorkerInfos() []client.WorkerInfo {
 	return []client.WorkerInfo{i.info}
+}
+
+type proxyStore struct {
+	store content.Store
+}
+
+func (s *proxyStore) Register(server *grpc.Server) {
+	service := contentserver.New(s.store)
+	api.RegisterContentServer(server, service)
 }
